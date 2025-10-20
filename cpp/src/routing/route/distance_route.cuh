@@ -107,15 +107,63 @@ class distance_route_t {
       // there is no fixed route data associated with distance
     }
 
+    /**
+     * @brief Calculate real cost based on distance tiers
+     *
+     * The logic applies tiered pricing:
+     * - Find the appropriate tier based on total distance
+     * - If fixed_cost > 0, use it; otherwise use cost_per_unit * distance
+     *
+     * @param distance Total route distance
+     * @param vehicle_info Vehicle information containing distance tiers
+     * @return Calculated cost based on tiers
+     */
+    DI double calculate_tiered_cost(double distance,
+                                    const VehicleInfo<f_t>& vehicle_info) const noexcept
+    {
+      // If no tiers defined, return the raw distance
+      if (vehicle_info.distance_tiers.empty()) { return distance; }
+
+      // Find the appropriate tier
+      for (size_t i = 0; i < vehicle_info.distance_tiers.size(); ++i) {
+        const auto& tier = vehicle_info.distance_tiers[i];
+
+        if (distance < tier.threshold) {
+          // Apply fixed cost if defined, otherwise use cost per unit
+          if (tier.fixed_cost > 0.0) {
+            return tier.fixed_cost;
+          } else {
+            return distance * tier.cost_per_unit;
+          }
+        }
+      }
+
+      // If we reach here, use the last tier (for distances beyond all thresholds)
+      if (!vehicle_info.distance_tiers.empty()) {
+        const auto& last_tier = vehicle_info.distance_tiers[vehicle_info.distance_tiers.size() - 1];
+        if (last_tier.fixed_cost > 0.0) {
+          return last_tier.fixed_cost;
+        } else {
+          return distance * last_tier.cost_per_unit;
+        }
+      }
+
+      return distance;
+    }
+
     DI void compute_cost(const VehicleInfo<f_t>& vehicle_info,
                          const i_t n_nodes_route,
                          objective_cost_t& obj_cost,
                          infeasible_cost_t& inf_cost) const noexcept
     {
-      double objective_cost     = distance_forward[n_nodes_route];
+      double total_distance = distance_forward[n_nodes_route];
+
+      // Calculate objective cost using tiered pricing if available
+      double objective_cost = calculate_tiered_cost(total_distance, vehicle_info);
+
       double infeasibility_cost = 0.;
       if (dim_info.has_max_constraint) {
-        infeasibility_cost = max(0., distance_forward[n_nodes_route] - vehicle_info.max_cost);
+        infeasibility_cost = max(0., total_distance - vehicle_info.max_cost);
       }
 
       obj_cost[objective_t::COST] = objective_cost;
