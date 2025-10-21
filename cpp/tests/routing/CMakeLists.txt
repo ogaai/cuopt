@@ -27,6 +27,8 @@ ConfigureTest(ROUTING_L1TEST ${CMAKE_CURRENT_SOURCE_DIR}/level1/l1_routing_test.
 
 # ##################################################################################################
 # - L1 Distance tier tests --------------------------------------------------------------------------
+ConfigureTest(SC25_TEST  ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests/sc25_test.cu
+    LABELS routing)
 ConfigureTest(SC25_TEST_DISTANCE_TIER  ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests/sc25_test_distance_tier.cu
     LABELS routing)
 
