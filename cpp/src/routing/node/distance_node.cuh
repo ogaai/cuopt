@@ -76,7 +76,29 @@ class distance_node_t {
   {
     double total_distance = ((double)distance_forward + (double)distance_backward);
 
-    obj_cost[objective_t::COST] = total_distance;
+    // Calculate cost based on distance tiers if configured
+    double route_cost = total_distance;  // Default: use raw distance
+
+    if (!vehicle_info.distance_tiers.empty()) {
+      // Apply tiered pricing based on total route distance
+      for (size_t tier_idx = 0; tier_idx < vehicle_info.distance_tiers.size(); ++tier_idx) {
+        const auto& tier = vehicle_info.distance_tiers[tier_idx];
+
+        if (total_distance < tier.threshold) {
+          // Found the applicable tier
+          if (tier.fixed_cost > 0.0) {
+            // Use fixed cost for this tier
+            route_cost = tier.fixed_cost;
+          } else {
+            // Use cost per unit for this tier
+            route_cost = total_distance * tier.cost_per_unit;
+          }
+          break;
+        }
+      }
+    }
+
+    obj_cost[objective_t::COST] = route_cost;
     if (dim_info.has_max_constraint) {
       inf_cost[dim_t::DIST] = max(0., total_distance - vehicle_info.max_cost);
     }
