@@ -144,14 +144,7 @@ TEST_F(DistanceTiersDummyTest, FourVehicles_TwentyClients)
   raft::copy(d_srv.data(), service.data(), n_orders, handle->get_stream());
   dm.set_order_service_times(d_srv.data(), -1);
 
-  // 2.e) Soft/Strict Time Windows
-  rmm::device_uvector<uint8_t> d_soft(n_orders, handle->get_stream());
-  rmm::device_uvector<float> d_pen(n_orders, handle->get_stream());
-  raft::copy(d_soft.data(), soft_type.data(), n_orders, handle->get_stream());
-  raft::copy(d_pen.data(), soft_pen.data(), n_orders, handle->get_stream());
-  dm.set_soft_time_windows(d_soft.data(), d_pen.data());
-
-  // 2.f) Vehicle Time Windows
+  // 2.e) Vehicle Time Windows
   std::vector<int> veh_earliest(n_vehicles, 8 * 60);  // 8:00 AM
   std::vector<int> veh_latest(n_vehicles, 18 * 60);   // 6:00 PM
   rmm::device_uvector<int> d_veh_earliest(n_vehicles, handle->get_stream());
@@ -160,7 +153,7 @@ TEST_F(DistanceTiersDummyTest, FourVehicles_TwentyClients)
   raft::copy(d_veh_latest.data(), veh_latest.data(), n_vehicles, handle->get_stream());
   dm.set_vehicle_time_windows(d_veh_earliest.data(), d_veh_latest.data());
 
-  // 2.g) Capacities
+  // 2.f) Capacities
   std::vector<int> veh_caps(n_vehicles, 150);  // Capacidad de 150 unidades
   rmm::device_uvector<int> d_caps(n_vehicles, handle->get_stream());
   rmm::device_uvector<int> d_dem(n_orders, handle->get_stream());
@@ -247,11 +240,9 @@ TEST_F(DistanceTiersDummyTest, FourVehicles_TwentyClients)
   // 4) CONFIGURAR OBJETIVOS Y RESOLVER
   // ============================================================================
 
-  std::vector<cuopt::routing::objective_t> objs = {
-    cuopt::routing::objective_t::COST,
-    cuopt::routing::objective_t::TRAVEL_TIME,
-    cuopt::routing::objective_t::SOFT_TIME_WINDOW_PENALTY};
-  std::vector<float> w = {1.0f, 0.5f, 1.0f};
+  std::vector<cuopt::routing::objective_t> objs = {cuopt::routing::objective_t::COST,
+                                                   cuopt::routing::objective_t::TRAVEL_TIME};
+  std::vector<float> w                          = {1.0f, 0.5f};
   rmm::device_uvector<cuopt::routing::objective_t> d_objs(objs.size(), handle->get_stream());
   rmm::device_uvector<float> d_w(w.size(), handle->get_stream());
   raft::copy(d_objs.data(), objs.data(), objs.size(), handle->get_stream());
@@ -261,7 +252,6 @@ TEST_F(DistanceTiersDummyTest, FourVehicles_TwentyClients)
   // Solver Settings
   cuopt::routing::solver_settings_t<int, float> set;
   set.set_time_limit(30.0f);
-  set.set_soft_to_hard_time_window_thresh(20.0f);
   set.set_verbose_mode(true);
 
   std::cout << "🚛 4 vehículos configurados con horario de 8:00 a 18:00 (480-1080 min)\n";
@@ -288,20 +278,17 @@ TEST_F(DistanceTiersDummyTest, FourVehicles_TwentyClients)
     switch (kv.first) {
       case cuopt::routing::objective_t::COST: obj_name = "COST"; break;
       case cuopt::routing::objective_t::TRAVEL_TIME: obj_name = "TRAVEL_TIME"; break;
-      case cuopt::routing::objective_t::SOFT_TIME_WINDOW_PENALTY:
-        obj_name = "SOFT_TIME_WINDOW_PENALTY";
-        break;
       default: obj_name = "UNKNOWN(" + std::to_string(static_cast<int>(kv.first)) + ")";
     }
     std::cout << "  - " << obj_name << ": " << kv.second << "\n";
   }
   std::cout << "\n";
 
-  auto route_host      = cuopt::host_copy(sol.get_route());
-  auto node_types_host = cuopt::host_copy(sol.get_node_types());
-  auto truck_id_host   = cuopt::host_copy(sol.get_truck_id());
-  auto order_locs_host = cuopt::host_copy(sol.get_order_locations());
-  auto arrival_host    = cuopt::host_copy(sol.get_arrival_stamp());
+  auto route_host      = cuopt::host_copy(sol.get_route(), handle->get_stream());
+  auto node_types_host = cuopt::host_copy(sol.get_node_types(), handle->get_stream());
+  auto truck_id_host   = cuopt::host_copy(sol.get_truck_id(), handle->get_stream());
+  auto order_locs_host = cuopt::host_copy(sol.get_order_locations(), handle->get_stream());
+  auto arrival_host    = cuopt::host_copy(sol.get_arrival_stamp(), handle->get_stream());
 
   auto is_depot = [&](size_t i) -> bool {
     return (i < node_types_host.size()) &&

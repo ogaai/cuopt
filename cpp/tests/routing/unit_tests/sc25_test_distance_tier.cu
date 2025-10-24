@@ -78,12 +78,12 @@ static float parse_float(std::string s)
 
 TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
 {
-  std::cout << "🚛 === SC25 TEST CON DISTANCE TIERS ===\n";
-  std::cout << "Este test implementa costos escalonados basados en distancia\n\n";
+  std::cout << "🚛 === SC25 TEST WITH DISTANCE TIERS ===\n";
+  std::cout << "This test implements distance-based tiered pricing\n\n";
 
-  // 1) Leer nodos turno 2
+  // 1)Read shift 2 nodes
   std::ifstream fnodes("../../../../datasets/SC25/nodes_df.csv");
-  ASSERT_TRUE(fnodes.is_open()) << "No se pudo abrir nodes_df.csv";
+  ASSERT_TRUE(fnodes.is_open()) << "Could not open nodes_df.csv";
   std::string line;
   std::getline(fnodes, line);  // header
   struct Row {
@@ -95,9 +95,9 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
     if (f.size() > 10 && f[10] == "2") rows2.push_back({std::move(f)});
   }
   fnodes.close();
-  ASSERT_FALSE(rows2.empty()) << "No hay órdenes turno 2";
+  ASSERT_FALSE(rows2.empty()) << "No orders for shift 2";
 
-  // 2) Atributos
+  // 2) Attributes
   std::vector<std::string> order_ids;
   std::vector<int> earliest, latest, service, demand;
   order_ids.reserve(rows2.size());
@@ -124,9 +124,9 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
   int n_vehicles  = 20;
   int n_locations = n_orders + 1;
 
-  // 3) Matriz de costos y tiempos
+  // 3) Cost and Time Matrix
   std::ifstream fmat("../../../../datasets/SC25/matrix_df.csv");
-  ASSERT_TRUE(fmat.is_open()) << "No se pudo abrir matrix_df.csv";
+  ASSERT_TRUE(fmat.is_open()) << "Could not open matrix_df.csv";
   std::getline(fmat, line);  // header
 
   std::map<std::string, int> node2loc;
@@ -169,7 +169,7 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
   }
   fmat.close();
 
-  // 3.a) Filtrar órdenes sin conectividad
+  // 3.a) Filter orders without connectivity
   std::vector<int> keep_idx;
   keep_idx.reserve(n_orders);
   for (int i = 0; i < n_orders; ++i) {
@@ -231,7 +231,7 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
   // 4) Data Model
   cuopt::routing::data_model_view_t<int, float> dm(handle.get(), n_locations, n_vehicles, n_orders);
 
-  // 5) Matrices aplanadas
+  // 5) Flattened matrices
   std::vector<float> h_cost(n_locations * n_locations), h_time(n_locations * n_locations);
   for (int i = 0; i < n_locations; ++i) {
     for (int j = 0; j < n_locations; ++j) {
@@ -292,28 +292,28 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
   dm.add_capacity_dimension("capacity", d_dem.data(), d_caps.data());
 
   // ============================================================================
-  // 11) DISTANCE TIERS - NUEVA FUNCIONALIDAD
+  // 11) DISTANCE TIERS - NEW FUNCTIONALITY
   // ============================================================================
 
-  std::cout << "🎯 Configurando Distance Tiers para vehículos...\n\n";
+  std::cout << "🎯 Configuring Distance Tiers for Vehicles...\n\n";
 
-  // Definir tramos de distancia para diferentes vehículos
-  // Escenario:
-  // - Vehículos 0-9: Rutas cortas (< 50 km) = coste fijo 30,
-  //                  Rutas medias (50-100 km) = 0.2/km,
-  //                  Rutas largas (> 100 km) = 0.5/km
-  // - Vehículos 10-19: Rutas cortas (< 75 km) = coste fijo 50,
-  //                    Rutas largas (> 75 km) = 0.3/km
+  // Define distance ranges for different vehicles
+  // Scenario:
+  // - Vehicles 0-9: Short routes (< 50 km) = fixed cost 30,
+  //                  Medium routes (50-100 km) = 0.2/km,
+  //                  Long routes (> 100 km) = 0.5/km
+  // - Vehicles 10-19: Short routes (< 75 km) = fixed cost 50,
+  //                    Long routes (> 75 km) = 0.3/km
 
-  // Formato: Para cada vehículo, lista de tramos con:
+  // Format: For each vehicle, a list of distance ranges with:
   // {threshold, fixed_cost, cost_per_unit}
 
   std::vector<float> all_thresholds;
   std::vector<float> all_fixed_costs;
   std::vector<float> all_costs_per_unit;
-  std::vector<int> tier_offsets;  // Offset para cada vehículo
+  std::vector<int> tier_offsets;  // Offset for each vehicle
 
-  tier_offsets.push_back(0);  // Offset inicial
+  tier_offsets.push_back(0);  // Initial offset
 
   for (int v = 0; v < n_vehicles; ++v) {
     if (v < 10) {
@@ -345,16 +345,16 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
     }
   }
 
-  std::cout << "📊 Distance Tiers configurados:\n";
-  std::cout << "   - Vehículos 0-9:\n";
-  std::cout << "     • < 50 km: Coste fijo 30\n";
-  std::cout << "     • 50-100 km: 0.2 por km\n";
-  std::cout << "     • > 100 km: 0.5 por km\n";
-  std::cout << "   - Vehículos 10-19:\n";
-  std::cout << "     • < 75 km: Coste fijo 50\n";
-  std::cout << "     • > 75 km: 0.3 por km\n\n";
+  std::cout << "📊 Configured distance tiers:\n";
+  std::cout << "   - Vehicles 0-9:\n";
+  std::cout << "     • < 50 km: Fixed cost 30\n";
+  std::cout << "     • 50-100 km: 0.2 per km\n";
+  std::cout << "     • > 100 km: 0.5 per km\n";
+  std::cout << "   - Vehicles 10-19:\n";
+  std::cout << "     • < 75 km: Fixed cost 50\n";
+  std::cout << "     • > 75 km: 0.3 per km\n\n";
 
-  // Copiar a device memory
+  // Copy to device memory
   int total_tiers = (int)all_thresholds.size();
   rmm::device_uvector<float> d_thresholds(total_tiers, handle->get_stream());
   rmm::device_uvector<float> d_fixed_costs(total_tiers, handle->get_stream());
@@ -366,6 +366,15 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
   raft::copy(d_costs_per_unit.data(), all_costs_per_unit.data(), total_tiers, handle->get_stream());
   raft::copy(
     d_tier_offsets.data(), tier_offsets.data(), (int)tier_offsets.size(), handle->get_stream());
+
+  // Configure the distance tiers in the data model
+  dm.set_vehicle_distance_tiers(d_thresholds.data(),
+                                d_fixed_costs.data(),
+                                d_costs_per_unit.data(),
+                                d_tier_offsets.data(),
+                                total_tiers);
+
+  std::cout << "✅ Distance tiers configured correctly in the data model\n\n";
 
   // ============================================================================
   // 12) Objectives
@@ -387,8 +396,8 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
   set.set_time_limit(60.0f);
   set.set_verbose_mode(true);
 
-  std::cout << "🚛 Vehículos configurados con turno de 15:00 a 21:00 (900-1260 min)\n";
-  std::cout << "🚀 Ejecutando solver...\n\n";
+  std::cout << "🚛 Vehicles scheduled for the 3:00 PM to 9:00 PM shift (900–1260 min)\n";
+  std::cout << "🚀 Running the solver...\n\n";
 
   auto sol = cuopt::routing::solve(dm, set);
 
@@ -407,19 +416,18 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
               << "\n";
   }
 
-  rmm::cuda_stream_view stream = rmm::cuda_stream_default;
-  auto route_host              = cuopt::host_copy(sol.get_route(), stream);
-  auto node_types_host         = cuopt::host_copy(sol.get_node_types(), stream);
-  auto truck_id_host           = cuopt::host_copy(sol.get_truck_id(), stream);
-  auto order_locs_host         = cuopt::host_copy(sol.get_order_locations(), stream);
-  auto arrival_host            = cuopt::host_copy(sol.get_arrival_stamp(), stream);
+  auto route_host      = cuopt::host_copy(sol.get_route(), handle->get_stream());
+  auto node_types_host = cuopt::host_copy(sol.get_node_types(), handle->get_stream());
+  auto truck_id_host   = cuopt::host_copy(sol.get_truck_id(), handle->get_stream());
+  auto order_locs_host = cuopt::host_copy(sol.get_order_locations(), handle->get_stream());
+  auto arrival_host    = cuopt::host_copy(sol.get_arrival_stamp(), handle->get_stream());
 
   auto is_depot = [&](size_t i) -> bool {
     return (i < node_types_host.size()) &&
            (node_types_host[i] == (int)cuopt::routing::node_type_t::DEPOT);
   };
 
-  // Calcular distancias por vehículo y aplicar tiers
+  // Calculate distances by vehicle and apply tiers
   std::map<int, std::vector<size_t>> visits_by_vehicle;
   std::map<int, float> distance_by_vehicle;
 
@@ -428,15 +436,15 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
     if (!is_depot(i)) { visits_by_vehicle[truck].push_back(i); }
   }
 
-  // Calcular distancia total por vehículo y costes con tiers
+  // Calculate total distance per vehicle and costs using third-party data
   std::cout << "\n===== VEHICLE ROUTES & DISTANCE TIERS =====\n";
 
-  float total_manual_cost = 0.0f;  // Suma total de costes calculados manualmente
-  float total_raw_distance = 0.0f; // Suma total de distancias sin tiers
+  float total_manual_cost  = 0.0f;  // Total of manually calculated costs
+  float total_raw_distance = 0.0f;  // Total distance excluding third parties
 
-  for (auto &kv : visits_by_vehicle) {
-    int truck = kv.first;
-    auto &visits = kv.second;
+  for (auto& kv : visits_by_vehicle) {
+    int truck    = kv.first;
+    auto& visits = kv.second;
 
     if (visits.empty()) continue;
 
@@ -450,7 +458,7 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
     }
     route_locs.push_back(0);  // Return to depot
 
-    // Calcular distancia total
+    // Calculate total distance
     for (size_t i = 0; i + 1 < route_locs.size(); ++i) {
       int from   = route_locs[i];
       int to     = route_locs[i + 1];
@@ -461,7 +469,7 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
     distance_by_vehicle[truck] = total_distance;
     total_raw_distance += total_distance;
 
-    // Determinar qué tier se aplica
+    // Determine which tier applies
     int tier_start = tier_offsets[truck];
     int tier_end   = tier_offsets[truck + 1];
 
@@ -482,50 +490,50 @@ TEST_F(SC25DistanceTiersTest, Turno2_WithDistanceTiers)
 
     total_manual_cost += applied_cost;
 
-    std::cout << "\n🚛 Vehículo " << truck << ":\n";
-    std::cout << "   Ruta: ";
+    std::cout << "\n🚛 Vehicle " << truck << ":\n";
+    std::cout << "   Route: ";
     for (size_t i = 0; i < route_locs.size(); ++i) {
       if (i > 0) std::cout << " -> ";
       std::cout << route_locs[i];
     }
     std::cout << "\n";
-    std::cout << "   Distancia bruta: " << total_distance << " km\n";
-    std::cout << "   Tier aplicado: " << applied_tier << "\n";
-    std::cout << "   Coste con tier: " << applied_cost << "\n";
-    std::cout << "   Número de órdenes: " << visits.size() << "\n";
+    std::cout << "   Total distance: " << total_distance << " km\n";
+    std::cout << "   Applied tier: " << applied_tier << "\n";
+    std::cout << "   Cost with tier: " << applied_cost << "\n";
+    std::cout << "   Number of orders: " << visits.size() << "\n";
   }
 
-  // Comparar con el coste devuelto por el solver
-  std::cout << "\n===== COMPARACIÓN DE COSTES =====\n";
-  std::cout << "📊 Distancia total (sin tiers): " << total_raw_distance << " km\n";
-  std::cout << "💰 Coste total calculado manualmente (con tiers): " << total_manual_cost << "\n";
+  // Compare with the cost returned by the solver
+  std::cout << "\n===== COST COMPARISON =====\n";
+  std::cout << "📊 Total distance (without tiers): " << total_raw_distance << " km\n";
+  std::cout << "💰 Total cost calculated manually (with tiers): " << total_manual_cost << "\n";
 
   auto cost_objective = objectives.find(cuopt::routing::objective_t::COST);
   if (cost_objective != objectives.end()) {
     double solver_cost = cost_objective->second;
-    std::cout << "🔧 Coste devuelto por el solver: " << solver_cost << "\n";
+    std::cout << "🔧 Cost returned by the solver: " << solver_cost << "\n";
 
-    float diff = std::abs(total_manual_cost - static_cast<float>(solver_cost));
+    float diff     = std::abs(total_manual_cost - static_cast<float>(solver_cost));
     float rel_diff = (solver_cost > 0) ? (diff / solver_cost * 100.0f) : 0.0f;
 
-    std::cout << "📉 Diferencia absoluta: " << diff << "\n";
-    std::cout << "📊 Diferencia relativa: " << rel_diff << "%\n";
+    std::cout << "📉 Absolute difference: " << diff << "\n";
+    std::cout << "📊 Relative difference: " << rel_diff << "%\n";
 
     if (rel_diff < 0.1f) {
-      std::cout << "✅ Los costes coinciden (el solver está usando distance tiers correctamente)\n";
+      std::cout << "✅ The costs match (the solver is using distance tiers correctly)\n";
     } else {
-      std::cout << "⚠️  Hay diferencia entre el cálculo manual y el solver\n";
-      std::cout << "    Esto puede indicar que:\n";
-      std::cout << "    - El solver no está aplicando los distance tiers, o\n";
-      std::cout << "    - Hay otros componentes de coste no considerados\n";
+      std::cout << "⚠️  There is a difference between the manual calculation and the solver\n";
+      std::cout << "    This may indicate that:\n";
+      std::cout << "    - The solver is not applying distance tiers, or\n";
+      std::cout << "    - There are other cost components not considered\n";
     }
   } else {
-    std::cout << "⚠️  No se encontró el objetivo COST en la solución\n";
+    std::cout << "⚠️  The COST objective was not found in the solution\n";
   }
 
-  std::cout << "\n✅ Test completado con distance tiers implementados.\n";
-  std::cout << "   Los distance tiers están configurados en el data model.\n";
-  std::cout << "   El solver usará estos tiers durante la optimización.\n";
+  std::cout << "\n✅ Test completed with distance tiers implemented.\n";
+  std::cout << "   The distance tiers are configured in the data model.\n";
+  std::cout << "   The solver will use these tiers during optimization.\n";
 
-  SUCCEED() << "Test con distance_tiers ejecutado correctamente.";
+  SUCCEED() << "Test with distance_tiers executed successfully.";
 }
