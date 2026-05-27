@@ -259,7 +259,7 @@ struct OX {
         auto vehicle_id = S.get_routes()[routesS[i - 1]].vehicle_id;
         distances.emplace_back(
           j,
-          S.problem->distance_between(
+          S.problem->cost_between(
             S.get_routes()[routesS[i - 1]].end, S.get_routes()[routesS[j]].start, vehicle_id));
       }
       std::normal_distribution<double> d(0, 0.25);

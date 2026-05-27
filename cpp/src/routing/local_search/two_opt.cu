@@ -51,21 +51,38 @@ DI thrust::pair<double, double> evaluate_two_opt_cvrp_move(
   i_t second)
 {
   auto n_nodes         = route.get_num_nodes();
-  double frag_backward = reverse_route.distance_dim.distance_forward[n_nodes - (first + 1)] -
-                         reverse_route.distance_dim.distance_forward[n_nodes - second];
-  double forward_sum = route.get_node(second + 1).distance_dim.distance_forward -
-                       route.get_node(first).distance_dim.distance_forward;
+  double frag_backward_cost_distance =
+    reverse_route.distance_dim.distance_forward[n_nodes - (first + 1)] -
+    reverse_route.distance_dim.distance_forward[n_nodes - second];
+  double frag_backward_travel_distance =
+    reverse_route.distance_dim.travel_distance_forward[n_nodes - (first + 1)] -
+    reverse_route.distance_dim.travel_distance_forward[n_nodes - second];
+  double forward_cost_distance = route.get_node(second + 1).distance_dim.distance_forward -
+                                 route.get_node(first).distance_dim.distance_forward;
+  double forward_travel_distance =
+    route.get_node(second + 1).distance_dim.travel_distance_forward -
+    route.get_node(first).distance_dim.travel_distance_forward;
 
-  double first_second = get_arc_of_dimension<i_t, f_t, dim_t::DIST>(
+  double first_second_cost_distance = get_distance(
+    route.get_node(first).node_info(), route.get_node(second).node_info(), route.vehicle_info());
+  double first_second_travel_distance = get_travel_distance(
     route.get_node(first).node_info(), route.get_node(second).node_info(), route.vehicle_info());
 
-  double first_next_second_next =
-    get_arc_of_dimension<i_t, f_t, dim_t::DIST>(route.get_node(first + 1).node_info(),
-                                                route.get_node(second + 1).node_info(),
-                                                route.vehicle_info());
+  double first_next_second_next_cost_distance = get_distance(
+    route.get_node(first + 1).node_info(), route.get_node(second + 1).node_info(), route.vehicle_info());
+  double first_next_second_next_travel_distance = get_travel_distance(
+    route.get_node(first + 1).node_info(), route.get_node(second + 1).node_info(), route.vehicle_info());
 
-  double delta = (first_second + frag_backward + first_next_second_next) - forward_sum;
-  return {delta, delta};
+  auto new_total_cost_distance = route.get_node(n_nodes).distance_dim.distance_forward +
+                                 ((first_second_cost_distance + frag_backward_cost_distance +
+                                   first_next_second_next_cost_distance) -
+                                  forward_cost_distance);
+  auto new_total_travel_distance = route.get_node(n_nodes).distance_dim.travel_distance_forward +
+                                   ((first_second_travel_distance + frag_backward_travel_distance +
+                                     first_next_second_next_travel_distance) -
+                                    forward_travel_distance);
+  return compute_distance_delta_from_totals<i_t, f_t, REQUEST>(
+    move_candidates, route, new_total_cost_distance, new_total_travel_distance);
 }
 
 template <typename i_t, typename f_t, request_t REQUEST>

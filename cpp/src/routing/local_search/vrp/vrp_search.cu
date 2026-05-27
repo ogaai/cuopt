@@ -30,11 +30,16 @@ __global__ void compute_reverse_distances(typename solution_t<i_t, f_t, REQUEST>
     auto n_nodes  = route.get_num_nodes();
 
     route.dimensions.distance_dim.reverse_distance[n_nodes] = 0.;
+    route.dimensions.distance_dim.reverse_travel_distance[n_nodes] = 0.;
     for (int i = n_nodes - 1; i >= 0; i--) {
-      double dist = get_arc_of_dimension<i_t, f_t, dim_t::DIST>(
+      double cost_distance = get_distance(
+        route.get_node(i + 1).node_info(), route.get_node(i).node_info(), route.vehicle_info());
+      double travel_distance = get_travel_distance(
         route.get_node(i + 1).node_info(), route.get_node(i).node_info(), route.vehicle_info());
       route.dimensions.distance_dim.reverse_distance[i] =
-        dist + route.dimensions.distance_dim.reverse_distance[i + 1];
+        cost_distance + route.dimensions.distance_dim.reverse_distance[i + 1];
+      route.dimensions.distance_dim.reverse_travel_distance[i] =
+        travel_distance + route.dimensions.distance_dim.reverse_travel_distance[i + 1];
     }
   }
 }

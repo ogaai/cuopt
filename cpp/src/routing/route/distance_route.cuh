@@ -30,7 +30,10 @@ class distance_route_t {
     : dim_info(dim_info_),
       distance_forward(0, sol_handle_->get_stream()),
       distance_backward(0, sol_handle_->get_stream()),
-      reverse_distance(0, sol_handle_->get_stream())
+      travel_distance_forward(0, sol_handle_->get_stream()),
+      travel_distance_backward(0, sol_handle_->get_stream()),
+      reverse_distance(0, sol_handle_->get_stream()),
+      reverse_travel_distance(0, sol_handle_->get_stream())
   {
     raft::common::nvtx::range fun_scope("zero distance_route_t copy_ctr");
   }
@@ -40,7 +43,10 @@ class distance_route_t {
     : dim_info(distance_route.dim_info),
       distance_forward(distance_route.distance_forward, sol_handle_->get_stream()),
       distance_backward(distance_route.distance_backward, sol_handle_->get_stream()),
-      reverse_distance(distance_route.reverse_distance, sol_handle_->get_stream())
+      travel_distance_forward(distance_route.travel_distance_forward, sol_handle_->get_stream()),
+      travel_distance_backward(distance_route.travel_distance_backward, sol_handle_->get_stream()),
+      reverse_distance(distance_route.reverse_distance, sol_handle_->get_stream()),
+      reverse_travel_distance(distance_route.reverse_travel_distance, sol_handle_->get_stream())
   {
     raft::common::nvtx::range fun_scope("distance route copy_ctr");
   }
@@ -51,7 +57,10 @@ class distance_route_t {
   {
     distance_forward.resize(max_nodes_per_route, stream);
     distance_backward.resize(max_nodes_per_route, stream);
+    travel_distance_forward.resize(max_nodes_per_route, stream);
+    travel_distance_backward.resize(max_nodes_per_route, stream);
     reverse_distance.resize(max_nodes_per_route, stream);
+    reverse_travel_distance.resize(max_nodes_per_route, stream);
   }
 
   struct view_t {
@@ -61,6 +70,8 @@ class distance_route_t {
       distance_node_t<i_t, f_t> distance_node;
       distance_node.distance_forward  = distance_forward[idx];
       distance_node.distance_backward = distance_backward[idx];
+      distance_node.travel_distance_forward  = travel_distance_forward[idx];
+      distance_node.travel_distance_backward = travel_distance_backward[idx];
       return distance_node;
     }
 
@@ -73,11 +84,13 @@ class distance_route_t {
     DI void set_forward_data(i_t idx, const distance_node_t<i_t, f_t>& node)
     {
       distance_forward[idx] = node.distance_forward;
+      travel_distance_forward[idx] = node.travel_distance_forward;
     }
 
     DI void set_backward_data(i_t idx, const distance_node_t<i_t, f_t>& node)
     {
       distance_backward[idx] = node.distance_backward;
+      travel_distance_backward[idx] = node.travel_distance_backward;
     }
 
     DI void copy_forward_data(const view_t& orig_route, i_t start_idx, i_t end_idx, i_t write_start)
@@ -85,6 +98,9 @@ class distance_route_t {
       i_t size = end_idx - start_idx;
       block_copy(distance_forward.subspan(write_start),
                  orig_route.distance_forward.subspan(start_idx),
+                 size);
+      block_copy(travel_distance_forward.subspan(write_start),
+                 orig_route.travel_distance_forward.subspan(start_idx),
                  size);
     }
 
@@ -96,6 +112,9 @@ class distance_route_t {
       i_t size = end_idx - start_idx;
       block_copy(distance_backward.subspan(write_start),
                  orig_route.distance_backward.subspan(start_idx),
+                 size);
+      block_copy(travel_distance_backward.subspan(write_start),
+                 orig_route.travel_distance_backward.subspan(start_idx),
                  size);
     }
 
@@ -118,37 +137,11 @@ class distance_route_t {
      * @param vehicle_info Vehicle information containing distance tiers
      * @return Calculated cost based on tiers
      */
-    DI double calculate_tiered_cost(double distance,
+    DI double calculate_tiered_cost(double travel_distance,
+                                    double distance_cost,
                                     const VehicleInfo<f_t>& vehicle_info) const noexcept
     {
-      // If no tiers defined, return the raw distance
-      if (vehicle_info.distance_tiers.empty()) { return distance; }
-
-      // Find the appropriate tier
-      for (size_t i = 0; i < vehicle_info.distance_tiers.size(); ++i) {
-        const auto& tier = vehicle_info.distance_tiers[i];
-
-        if (distance < tier.threshold) {
-          // Apply fixed cost if defined, otherwise use cost per unit
-          if (tier.fixed_cost > 0.0) {
-            return tier.fixed_cost;
-          } else {
-            return distance * tier.cost_per_unit;
-          }
-        }
-      }
-
-      // If we reach here, use the last tier (for distances beyond all thresholds)
-      if (!vehicle_info.distance_tiers.empty()) {
-        const auto& last_tier = vehicle_info.distance_tiers[vehicle_info.distance_tiers.size() - 1];
-        if (last_tier.fixed_cost > 0.0) {
-          return last_tier.fixed_cost;
-        } else {
-          return distance * last_tier.cost_per_unit;
-        }
-      }
-
-      return distance;
+      return vehicle_info.compute_distance_cost(travel_distance, distance_cost);
     }
 
     DI void compute_cost(const VehicleInfo<f_t>& vehicle_info,
@@ -156,14 +149,17 @@ class distance_route_t {
                          objective_cost_t& obj_cost,
                          infeasible_cost_t& inf_cost) const noexcept
     {
-      double total_distance = distance_forward[n_nodes_route];
+      double total_distance_cost   = distance_forward[n_nodes_route];
+      double total_travel_distance = travel_distance_forward[n_nodes_route];
 
       // Calculate objective cost using tiered pricing if available
-      double objective_cost = calculate_tiered_cost(total_distance, vehicle_info);
+      double objective_cost =
+        calculate_tiered_cost(total_travel_distance, total_distance_cost, vehicle_info);
 
       double infeasibility_cost = 0.;
       if (dim_info.has_max_constraint) {
-        infeasibility_cost = max(0., total_distance - vehicle_info.max_cost);
+        infeasibility_cost = max(0., total_travel_distance - vehicle_info.max_distance) +
+                             max(0., objective_cost - vehicle_info.max_cost);
       }
 
       obj_cost[objective_t::COST] = objective_cost;
@@ -179,15 +175,23 @@ class distance_route_t {
       v.distance_forward  = raft::device_span<double>{(double*)shmem, (size_t)n_nodes_route + 1};
       v.distance_backward = raft::device_span<double>{
         (double*)&v.distance_forward.data()[n_nodes_route + 1], (size_t)n_nodes_route + 1};
+      v.travel_distance_forward = raft::device_span<double>{
+        (double*)&v.distance_backward.data()[n_nodes_route + 1], (size_t)n_nodes_route + 1};
+      v.travel_distance_backward = raft::device_span<double>{
+        (double*)&v.travel_distance_forward.data()[n_nodes_route + 1],
+        (size_t)n_nodes_route + 1};
 
-      i_t* sh_ptr = (i_t*)&v.distance_backward.data()[n_nodes_route + 1];
+      i_t* sh_ptr = (i_t*)&v.travel_distance_backward.data()[n_nodes_route + 1];
       return thrust::make_tuple(v, sh_ptr);
     }
 
     cost_dimension_info_t dim_info;
     raft::device_span<double> distance_forward;
     raft::device_span<double> distance_backward;
+    raft::device_span<double> travel_distance_forward;
+    raft::device_span<double> travel_distance_backward;
     raft::device_span<double> reverse_distance;
+    raft::device_span<double> reverse_travel_distance;
   };
 
   view_t view()
@@ -198,8 +202,14 @@ class distance_route_t {
       raft::device_span<double>{distance_forward.data(), distance_forward.size()};
     v.distance_backward =
       raft::device_span<double>{distance_backward.data(), distance_backward.size()};
+    v.travel_distance_forward =
+      raft::device_span<double>{travel_distance_forward.data(), travel_distance_forward.size()};
+    v.travel_distance_backward =
+      raft::device_span<double>{travel_distance_backward.data(), travel_distance_backward.size()};
     v.reverse_distance =
       raft::device_span<double>{reverse_distance.data(), reverse_distance.size()};
+    v.reverse_travel_distance =
+      raft::device_span<double>{reverse_travel_distance.data(), reverse_travel_distance.size()};
     return v;
   }
 
@@ -214,7 +224,7 @@ class distance_route_t {
                                     [[maybe_unused]] bool is_tsp = false)
   {
     // forward, backward
-    return 2 * route_size * sizeof(double);
+    return 4 * route_size * sizeof(double);
   }
 
   cost_dimension_info_t dim_info;
@@ -223,9 +233,14 @@ class distance_route_t {
   rmm::device_uvector<double> distance_forward;
   // backward data
   rmm::device_uvector<double> distance_backward;
+  // physical distance forward data
+  rmm::device_uvector<double> travel_distance_forward;
+  // physical distance backward data
+  rmm::device_uvector<double> travel_distance_backward;
   // The info is not updated with the other dimension buffers.
   // It is only used for cvrp/tsp and populated in global memory.
   rmm::device_uvector<double> reverse_distance;
+  rmm::device_uvector<double> reverse_travel_distance;
 };
 
 }  // namespace detail

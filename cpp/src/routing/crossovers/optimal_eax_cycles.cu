@@ -331,9 +331,9 @@ void optimal_cycles_t<i_t, f_t, REQUEST>::insert_cycle_to_route_request(
         }
       }
     }
-    double sec_core = s.problem->distance_between(prev_start, cycle[0], vehicle_id) +
-                      s.problem->distance_between(cycle.back(), start, vehicle_id) -
-                      s.problem->distance_between(prev_start, start, vehicle_id);
+    double sec_core = s.problem->cost_between(prev_start, cycle[0], vehicle_id) +
+                      s.problem->cost_between(cycle.back(), start, vehicle_id) -
+                      s.problem->cost_between(prev_start, start, vehicle_id);
     if (score < best_score || (score == best_score && sec_core < best_sec_score)) {
       between.first  = prev_start;
       between.second = start;

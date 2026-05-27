@@ -16,6 +16,44 @@ namespace routing {
 namespace detail {
 
 template <typename i_t, typename f_t, request_t REQUEST>
+DI thrust::pair<double, double> compute_distance_delta_from_totals(
+  typename move_candidates_t<i_t, f_t>::view_t const& move_candidates,
+  const typename route_t<i_t, f_t, REQUEST>::view_t& route,
+  double new_total_cost_distance,
+  double new_total_travel_distance)
+{
+  auto new_obj_cost = route.get_objective_cost();
+  auto new_inf_cost = route.get_infeasibility_cost();
+
+  new_obj_cost[objective_t::COST] =
+    route.vehicle_info().compute_distance_cost(new_total_travel_distance, new_total_cost_distance);
+  new_inf_cost[dim_t::DIST] = route.template get_dim<dim_t::DIST>().dim_info.has_max_constraint
+                                ? max(0.,
+                                      new_total_travel_distance -
+                                        route.vehicle_info().max_distance) +
+                                    max(0.,
+                                        new_obj_cost[objective_t::COST] -
+                                          route.vehicle_info().max_cost)
+                                : 0.;
+
+  double delta = infeasible_cost_t::dot(
+    move_candidates.weights,
+    infeasible_cost_t::nominal_diff(new_inf_cost, route.get_infeasibility_cost()));
+  double selection_delta = infeasible_cost_t::dot(
+    move_candidates.selection_weights,
+    infeasible_cost_t::nominal_diff(new_inf_cost, route.get_infeasibility_cost()));
+
+  if (move_candidates.include_objective) {
+    auto obj_weights = route.dimensions_info().objective_weights;
+    delta += objective_cost_t::dot(obj_weights, new_obj_cost - route.get_objective_cost());
+    selection_delta +=
+      objective_cost_t::dot(obj_weights, new_obj_cost - route.get_objective_cost());
+  }
+
+  return {delta, selection_delta};
+}
+
+template <typename i_t, typename f_t, request_t REQUEST>
 DI thrust::pair<double, double> evaluate_cap_infeasibility(
   typename solution_t<i_t, f_t, REQUEST>::view_t& solution,
   typename move_candidates_t<i_t, f_t>::view_t& move_candidates,
@@ -73,50 +111,99 @@ DI thrust::pair<double, double> evaluate_fragment(
     return {std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
   }
 
-  if (!move_candidates.include_objective) { return {0, 0}; }
   // cost check
-  double obj_delta = 0.;
-  double all_forward_1 =
+  double cost_distance_delta = 0.;
+  double travel_distance_delta = 0.;
+  double all_forward_cost_distance =
     route_1.get_node(start_idx_1 + 1 + frag_size_1).distance_dim.distance_forward -
     route_1.get_node(start_idx_1).distance_dim.distance_forward;
+  double all_forward_travel_distance =
+    route_1.get_node(start_idx_1 + 1 + frag_size_1).distance_dim.travel_distance_forward -
+    route_1.get_node(start_idx_1).distance_dim.travel_distance_forward;
   if (frag_size_2 == 0) {
-    auto direct = get_arc_of_dimension<i_t, f_t, dim_t::DIST>(
+    auto direct_cost_distance = get_distance(
       route_1.get_node(start_idx_1).node_info(),
       route_1.get_node(start_idx_1 + 1 + frag_size_1).node_info(),
       route_1.vehicle_info());
-    return {direct - all_forward_1, direct - all_forward_1};
+    auto direct_travel_distance = get_travel_distance(
+      route_1.get_node(start_idx_1).node_info(),
+      route_1.get_node(start_idx_1 + 1 + frag_size_1).node_info(),
+      route_1.vehicle_info());
+    auto new_total_cost_distance =
+      route_1.get_node(route_1.get_num_nodes()).distance_dim.distance_forward +
+      (direct_cost_distance - all_forward_cost_distance);
+    auto new_total_travel_distance =
+      route_1.get_node(route_1.get_num_nodes()).distance_dim.travel_distance_forward +
+      (direct_travel_distance - all_forward_travel_distance);
+    return compute_distance_delta_from_totals<i_t, f_t, REQUEST>(
+      move_candidates, route_1, new_total_cost_distance, new_total_travel_distance);
   }
 
   if (!reverse) {
-    double sd1_sd2_1 =
-      get_arc_of_dimension<i_t, f_t, dim_t::DIST>(route_1.get_node(start_idx_1).node_info(),
-                                                  route_2.get_node(start_idx_2 + 1).node_info(),
-                                                  route_1.vehicle_info());
+    double sd1_sd2_1_cost_distance =
+      get_distance(route_1.get_node(start_idx_1).node_info(),
+                   route_2.get_node(start_idx_2 + 1).node_info(),
+                   route_1.vehicle_info());
+    double sd1_sd2_1_travel_distance =
+      get_travel_distance(route_1.get_node(start_idx_1).node_info(),
+                          route_2.get_node(start_idx_2 + 1).node_info(),
+                          route_1.vehicle_info());
 
-    double end_node_2_end_node_1 = get_arc_of_dimension<i_t, f_t, dim_t::DIST>(
+    double end_node_2_end_node_1_cost_distance = get_distance(
       route_2.get_node(start_idx_2 + frag_size_2).node_info(),
       route_1.get_node(start_idx_1 + frag_size_1 + 1).node_info(),
       route_1.vehicle_info());
-    double frag_dist = route_2.get_node(start_idx_2 + frag_size_2).distance_dim.distance_forward -
-                       route_2.get_node(start_idx_2 + 1).distance_dim.distance_forward;
-    obj_delta = sd1_sd2_1 + frag_dist + end_node_2_end_node_1 - all_forward_1;
+    double end_node_2_end_node_1_travel_distance = get_travel_distance(
+      route_2.get_node(start_idx_2 + frag_size_2).node_info(),
+      route_1.get_node(start_idx_1 + frag_size_1 + 1).node_info(),
+      route_1.vehicle_info());
+    double frag_cost_distance =
+      route_2.get_node(start_idx_2 + frag_size_2).distance_dim.distance_forward -
+      route_2.get_node(start_idx_2 + 1).distance_dim.distance_forward;
+    double frag_travel_distance =
+      route_2.get_node(start_idx_2 + frag_size_2).distance_dim.travel_distance_forward -
+      route_2.get_node(start_idx_2 + 1).distance_dim.travel_distance_forward;
+    cost_distance_delta = sd1_sd2_1_cost_distance + frag_cost_distance +
+                          end_node_2_end_node_1_cost_distance - all_forward_cost_distance;
+    travel_distance_delta = sd1_sd2_1_travel_distance + frag_travel_distance +
+                            end_node_2_end_node_1_travel_distance - all_forward_travel_distance;
   } else {
-    double sd1_end_frag_2 = get_arc_of_dimension<i_t, f_t, dim_t::DIST>(
+    double sd1_end_frag_2_cost_distance = get_distance(
+      route_1.get_node(start_idx_1).node_info(),
+      route_2.get_node(start_idx_2 + frag_size_2).node_info(),
+      route_1.vehicle_info());
+    double sd1_end_frag_2_travel_distance = get_travel_distance(
       route_1.get_node(start_idx_1).node_info(),
       route_2.get_node(start_idx_2 + frag_size_2).node_info(),
       route_1.vehicle_info());
 
-    double sd2_1_end_node_1 = get_arc_of_dimension<i_t, f_t, dim_t::DIST>(
+    double sd2_1_end_node_1_cost_distance = get_distance(
       route_2.get_node(start_idx_2 + 1).node_info(),
       route_1.get_node(start_idx_1 + frag_size_1 + 1).node_info(),
       route_1.vehicle_info());
-    double frag_dist =
+    double sd2_1_end_node_1_travel_distance = get_travel_distance(
+      route_2.get_node(start_idx_2 + 1).node_info(),
+      route_1.get_node(start_idx_1 + frag_size_1 + 1).node_info(),
+      route_1.vehicle_info());
+    double frag_cost_distance =
       route_2.dimensions.distance_dim.reverse_distance[(start_idx_2 + 1)] -
       route_2.dimensions.distance_dim.reverse_distance[(start_idx_2 + frag_size_2)];
-    obj_delta = sd1_end_frag_2 + frag_dist + sd2_1_end_node_1 - all_forward_1;
+    double frag_travel_distance =
+      route_2.dimensions.distance_dim.reverse_travel_distance[(start_idx_2 + 1)] -
+      route_2.dimensions.distance_dim.reverse_travel_distance[(start_idx_2 + frag_size_2)];
+    cost_distance_delta = sd1_end_frag_2_cost_distance + frag_cost_distance +
+                          sd2_1_end_node_1_cost_distance - all_forward_cost_distance;
+    travel_distance_delta = sd1_end_frag_2_travel_distance + frag_travel_distance +
+                            sd2_1_end_node_1_travel_distance - all_forward_travel_distance;
   }
 
-  return {obj_delta, obj_delta};
+  auto new_total_cost_distance =
+    route_1.get_node(route_1.get_num_nodes()).distance_dim.distance_forward + cost_distance_delta;
+  auto new_total_travel_distance = route_1.get_node(route_1.get_num_nodes())
+                                     .distance_dim.travel_distance_forward +
+                                   travel_distance_delta;
+  return compute_distance_delta_from_totals<i_t, f_t, REQUEST>(
+    move_candidates, route_1, new_total_cost_distance, new_total_travel_distance);
 }
 
 template <typename i_t, typename f_t, request_t REQUEST>

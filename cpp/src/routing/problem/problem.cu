@@ -57,11 +57,17 @@ problem_t<i_t, f_t>::problem_t(const data_model_view_t<i_t, f_t>& data_model_vie
 
   vehicle_types_h = cuopt::host_copy(fleet_info.v_types_, handle_ptr->get_stream());
   for (auto& vtype : vehicle_types_h) {
-    if (!distance_matrices_h.count(vtype)) {
+    if (!cost_matrices_h.count(vtype)) {
       auto cost_matrix = fleet_info.matrices_.get_cost_matrix(vtype);
       auto cost_matrix_h =
         cuopt::host_copy(cost_matrix, n_locations * n_locations, handle_ptr->get_stream());
-      distance_matrices_h.emplace(vtype, cost_matrix_h);
+      cost_matrices_h.emplace(vtype, cost_matrix_h);
+    }
+    if (!travel_distance_matrices_h.count(vtype)) {
+      auto travel_distance_matrix = fleet_info.matrices_.get_distance_matrix(vtype);
+      auto travel_distance_matrix_h =
+        cuopt::host_copy(travel_distance_matrix, n_locations * n_locations, handle_ptr->get_stream());
+      travel_distance_matrices_h.emplace(vtype, travel_distance_matrix_h);
     }
   }
   handle_ptr->sync_stream();
@@ -244,6 +250,10 @@ void problem_t<i_t, f_t>::populate_dimensions_info()
   dimensions_info.enable_objective(objective_t::COST, cost_obj_weight);
 
   auto& cost_dim_info = dimensions_info.distance_dim;
+  if (auto vehicle_max_distances = data_view_ptr->get_vehicle_max_distances();
+      !vehicle_max_distances.empty()) {
+    cost_dim_info.has_max_constraint = true;
+  }
   if (auto vehicle_max_costs = data_view_ptr->get_vehicle_max_costs(); !vehicle_max_costs.empty()) {
     cost_dim_info.has_max_constraint = true;
   }
@@ -442,14 +452,14 @@ bool problem_t<i_t, f_t>::is_pickup(i_t node_id) const
 // FIXME:: This is not scalable as we add more features. We should be able to use the method
 // that we use in kernels
 template <typename i_t, typename f_t>
-double problem_t<i_t, f_t>::distance_between(const NodeInfo<>& node_1,
-                                             const NodeInfo<>& node_2,
-                                             const int& vehicle_id) const
+double problem_t<i_t, f_t>::cost_between(const NodeInfo<>& node_1,
+                                         const NodeInfo<>& node_2,
+                                         const int& vehicle_id) const
 {
   auto n_locations = data_view_ptr->get_num_locations();
   cuopt_assert(vehicle_id < (int)vehicle_types_h.size(), "vehicle id should be in range!");
   i_t vehicle_type = vehicle_types_h[vehicle_id];
-  cuopt_assert(distance_matrices_h.count(vehicle_type), "vehicle type does not exist!");
+  cuopt_assert(cost_matrices_h.count(vehicle_type), "vehicle type does not exist!");
 
   if (node_1.is_depot() && skip_first_trip_h[vehicle_id]) {
     return 0.;
@@ -457,7 +467,27 @@ double problem_t<i_t, f_t>::distance_between(const NodeInfo<>& node_1,
     return 0.;
   }
 
-  return distance_matrices_h.at(vehicle_type)[node_1.location() * n_locations + node_2.location()];
+  return cost_matrices_h.at(vehicle_type)[node_1.location() * n_locations + node_2.location()];
+}
+
+template <typename i_t, typename f_t>
+double problem_t<i_t, f_t>::distance_between(const NodeInfo<>& node_1,
+                                             const NodeInfo<>& node_2,
+                                             const int& vehicle_id) const
+{
+  auto n_locations = data_view_ptr->get_num_locations();
+  cuopt_assert(vehicle_id < (int)vehicle_types_h.size(), "vehicle id should be in range!");
+  i_t vehicle_type = vehicle_types_h[vehicle_id];
+  cuopt_assert(travel_distance_matrices_h.count(vehicle_type), "vehicle type does not exist!");
+
+  if (node_1.is_depot() && skip_first_trip_h[vehicle_id]) {
+    return 0.;
+  } else if (node_2.is_depot() && drop_return_trip_h[vehicle_id]) {
+    return 0.;
+  }
+
+  return travel_distance_matrices_h.at(vehicle_type)[node_1.location() * n_locations +
+                                                     node_2.location()];
 }
 
 template <typename i_t, typename f_t>
