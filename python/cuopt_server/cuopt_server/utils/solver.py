@@ -220,6 +220,8 @@ def populate_optimization_data(
                 fleet_data.vehicle_max_costs,
                 fleet_data.vehicle_max_times,
                 fleet_data.vehicle_fixed_costs,
+                fleet_data.vehicle_distance_tiers,
+                fleet_data.vehicle_max_distances,
             )
         )
 
