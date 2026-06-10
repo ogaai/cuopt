@@ -15,6 +15,7 @@ import cuopt_server.utils.request_filter as request_filter
 import cuopt_server.utils.settings as settings
 from cuopt_server.utils.data_definition import (
     CostMatrices,
+    DistanceMatrices,
     FleetData,
     InitialSolution,
     LPData,
@@ -134,6 +135,7 @@ def populate_optimization_data(
     cost_waypoint_graph_data: Optional[WaypointGraphData] = None,
     travel_time_waypoint_graph_data: Optional[WaypointGraphData] = None,
     cost_matrix_data: Optional[CostMatrices] = None,
+    distance_matrix_data: Optional[DistanceMatrices] = None,
     travel_time_matrix_data: Optional[CostMatrices] = None,
     fleet_data: Optional[FleetData] = None,
     task_data: Optional[TaskData] = None,
@@ -198,6 +200,14 @@ def populate_optimization_data(
         check_valid(
             optimization_data.set_travel_time_matrix(
                 travel_time_matrix_data.data
+            )
+        )
+
+    if distance_matrix_data and distance_matrix_data.data is not None:
+        check_valid(
+            optimization_data.set_distance_matrix(
+                distance_matrix_data.data,
+                fleet_data.vehicle_distance_tiers if fleet_data else None,
             )
         )
 
@@ -275,6 +285,7 @@ def solve_optimized_routes_sync(
     cost_waypoint_graph_data: Optional[WaypointGraphData] = None,
     travel_time_waypoint_graph_data: Optional[WaypointGraphData] = None,
     cost_matrix_data: Optional[CostMatrices] = None,
+    distance_matrix_data: Optional[DistanceMatrices] = None,
     travel_time_matrix_data: Optional[CostMatrices] = None,
     fleet_data: Optional[FleetData] = None,
     task_data: Optional[TaskData] = None,
@@ -292,6 +303,7 @@ def solve_optimized_routes_sync(
         cost_waypoint_graph_data,
         travel_time_waypoint_graph_data,
         cost_matrix_data,
+        distance_matrix_data,
         travel_time_matrix_data,
         fleet_data,
         task_data,
