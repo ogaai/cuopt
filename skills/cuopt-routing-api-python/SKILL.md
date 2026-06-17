@@ -14,6 +14,7 @@ metadata:
 ---
 
 
+
 # cuOpt Routing — Python API
 
 Confirm problem type (TSP, VRP, PDP) and data (locations, orders, fleet, constraints) before coding.
@@ -103,8 +104,8 @@ ss.set_error_logging_mode(True)
 
 ## Examples
 
-- [examples.md](resources/examples.md) — VRP, PDP, multi-depot
-- [server_examples.md](resources/server_examples.md) — REST client (curl, Python)
+- [examples.md](references/examples.md) — VRP, PDP, multi-depot
+- [server_examples.md](references/server_examples.md) — REST client (curl, Python)
 - **Reference models:** This skill's `assets/` — [vrp_basic](assets/vrp_basic/), [pdp_basic](assets/pdp_basic/). See [assets/README.md](assets/README.md).
 
 ## Escalate

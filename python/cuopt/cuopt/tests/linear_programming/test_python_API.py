@@ -150,6 +150,16 @@ def test_model():
     assert prob.ObjValue == pytest.approx(5 * x.Value + 3 * y.Value + 70)
 
 
+def test_constraint_duplicate_terms_slack():
+    """Merged coeffs in vindex_coeff_dict must not be double-counted in slack."""
+    prob = Problem()
+    x = prob.addVariable()
+    c = prob.addConstraint(5 * x + 7 * x <= 18)
+    assert c.getCoefficient(x) == 12
+    x.Value = 1.0
+    assert c.compute_slack() == pytest.approx(6.0)
+
+
 def test_semi_continuous_variable():
     prob = Problem("Semi-continuous")
     x = prob.addVariable(lb=5.0, ub=10.0, vtype=SEMI_CONTINUOUS, name="x")
@@ -480,6 +490,47 @@ def test_warm_start():
         iterations_third_solve + iterations_second_solve
         == iterations_first_solve
     )
+
+
+def test_mip_start():
+    # Build a small MIP and feed it an (already-optimal) MIP start through
+    # the new Variable.MIPStart attribute. We verify:
+    #   - the attribute defaults to NaN
+    #   - setMIPStart / direct assignment both work
+    #   - the values reach the data model via set_initial_primal_solution
+    #   - solving still produces the optimal result
+    #   - leaving every MIPStart as NaN does not set an initial primal sol
+    prob = Problem("MIP_start")
+    x = prob.addVariable(lb=0, ub=10, vtype=INTEGER, name="x")
+    y = prob.addVariable(lb=0, ub=10, vtype=INTEGER, name="y")
+
+    assert math.isnan(x.getMIPStart())
+    assert math.isnan(y.MIPStart)
+
+    prob.addConstraint(x + y <= 10, name="c1")
+    prob.addConstraint(x - y >= 0, name="c2")
+    prob.setObjective(x + 2 * y, sense=MAXIMIZE)
+
+    x.setMIPStart(5)
+    y.MIPStart = 5.0
+
+    assert x.getMIPStart() == 5.0
+    assert y.getMIPStart() == 5.0
+
+    prob._to_data_model()
+    initial_primal = prob.model.get_initial_primal_solution()
+    assert len(initial_primal) == 2
+    assert initial_primal[0] == pytest.approx(5.0)
+    assert initial_primal[1] == pytest.approx(5.0)
+
+    settings = SolverSettings()
+    settings.set_parameter("time_limit", 5)
+    prob.solve(settings)
+
+    assert prob.Status.name == "Optimal"
+    assert prob.ObjValue == pytest.approx(15)
+    assert x.Value == pytest.approx(5)
+    assert y.Value == pytest.approx(5)
 
 
 def test_problem_update():
