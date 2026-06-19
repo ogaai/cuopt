@@ -455,7 +455,7 @@ void local_search_t<i_t, f_t, REQUEST>::calculate_route_compatibility(
   RAFT_CHECK_CUDA(sol.sol_handle->get_stream());
 }
 
-// sort the viable matrix according to the distance after the insertion
+// sort the viable matrix according to the cost after the insertion
 template <typename i_t, typename f_t>
 void problem_t<i_t, f_t>::sort_viable_matrix(rmm::device_uvector<i_t>& viable_from_matrix,
                                              rmm::device_uvector<i_t>& viable_to_matrix)
@@ -489,14 +489,14 @@ void problem_t<i_t, f_t>::sort_viable_matrix(rmm::device_uvector<i_t>& viable_fr
       i_t from_node_2 = thrust::get<1>(second);
       if (to_node_1 == -1) return false;
       if (to_node_2 == -1) return true;
-      const auto from_info_1 =
-        NodeInfo<i_t>(from_node_1, order_info_view.get_order_location(from_node_1), node_type_t::PICKUP);
-      const auto to_info_1 =
-        NodeInfo<i_t>(to_node_1, order_info_view.get_order_location(to_node_1), node_type_t::PICKUP);
-      const auto from_info_2 =
-        NodeInfo<i_t>(from_node_2, order_info_view.get_order_location(from_node_2), node_type_t::PICKUP);
-      const auto to_info_2 =
-        NodeInfo<i_t>(to_node_2, order_info_view.get_order_location(to_node_2), node_type_t::PICKUP);
+      const auto from_info_1 = NodeInfo<i_t>(
+        from_node_1, order_info_view.get_order_location(from_node_1), node_type_t::PICKUP);
+      const auto to_info_1 = NodeInfo<i_t>(
+        to_node_1, order_info_view.get_order_location(to_node_1), node_type_t::PICKUP);
+      const auto from_info_2 = NodeInfo<i_t>(
+        from_node_2, order_info_view.get_order_location(from_node_2), node_type_t::PICKUP);
+      const auto to_info_2 = NodeInfo<i_t>(
+        to_node_2, order_info_view.get_order_location(to_node_2), node_type_t::PICKUP);
       const auto score_1 =
         problem_t<i_t, f_t>::compute_viable_neighbor_score(from_info_1, to_info_1, l_vehicle_info);
       const auto score_2 =
@@ -533,14 +533,14 @@ void problem_t<i_t, f_t>::sort_viable_matrix(rmm::device_uvector<i_t>& viable_fr
       i_t to_node_2   = thrust::get<1>(second);
       if (from_node_1 == -1) return false;
       if (from_node_2 == -1) return true;
-      const auto from_info_1 =
-        NodeInfo<i_t>(from_node_1, order_info_view.get_order_location(from_node_1), node_type_t::PICKUP);
-      const auto to_info_1 =
-        NodeInfo<i_t>(to_node_1, order_info_view.get_order_location(to_node_1), node_type_t::PICKUP);
-      const auto from_info_2 =
-        NodeInfo<i_t>(from_node_2, order_info_view.get_order_location(from_node_2), node_type_t::PICKUP);
-      const auto to_info_2 =
-        NodeInfo<i_t>(to_node_2, order_info_view.get_order_location(to_node_2), node_type_t::PICKUP);
+      const auto from_info_1 = NodeInfo<i_t>(
+        from_node_1, order_info_view.get_order_location(from_node_1), node_type_t::PICKUP);
+      const auto to_info_1 = NodeInfo<i_t>(
+        to_node_1, order_info_view.get_order_location(to_node_1), node_type_t::PICKUP);
+      const auto from_info_2 = NodeInfo<i_t>(
+        from_node_2, order_info_view.get_order_location(from_node_2), node_type_t::PICKUP);
+      const auto to_info_2 = NodeInfo<i_t>(
+        to_node_2, order_info_view.get_order_location(to_node_2), node_type_t::PICKUP);
       const auto score_1 =
         problem_t<i_t, f_t>::compute_viable_neighbor_score(from_info_1, to_info_1, l_vehicle_info);
       const auto score_2 =

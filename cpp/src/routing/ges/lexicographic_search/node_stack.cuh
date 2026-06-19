@@ -29,7 +29,7 @@ DI static void copy_forward_data(dst_t& dst, const src_t& src)
                                  std::is_same<dst_t, node_t<int, float, request_t::VRP>>::value;
 
   if constexpr (is_src_a_node && !is_dst_a_node) {
-    dst.distance_forward         = src.distance_dim.distance_forward;
+    dst.cost_forward             = src.cost_dim.cost_forward;
     dst.transit_time_forward     = src.time_dim.transit_time_forward;
     dst.latest_arrival_forward   = src.time_dim.latest_arrival_forward;
     dst.unavoidable_wait_forward = src.time_dim.unavoidable_wait_forward;
@@ -42,7 +42,7 @@ DI static void copy_forward_data(dst_t& dst, const src_t& src)
       }
     });
   } else if constexpr (is_dst_a_node && !is_src_a_node) {
-    dst.distance_dim.distance_forward     = src.distance_forward;
+    dst.cost_dim.cost_forward             = src.cost_forward;
     dst.time_dim.transit_time_forward     = src.transit_time_forward;
     dst.time_dim.latest_arrival_forward   = src.latest_arrival_forward;
     dst.time_dim.unavoidable_wait_forward = src.unavoidable_wait_forward;
@@ -55,7 +55,7 @@ DI static void copy_forward_data(dst_t& dst, const src_t& src)
       }
     });
   } else if constexpr (!is_src_a_node && !is_dst_a_node) {
-    dst.distance_forward         = src.distance_forward;
+    dst.cost_forward             = src.cost_forward;
     dst.transit_time_forward     = src.transit_time_forward;
     dst.latest_arrival_forward   = src.latest_arrival_forward;
     dst.unavoidable_wait_forward = src.unavoidable_wait_forward;
@@ -66,7 +66,7 @@ DI static void copy_forward_data(dst_t& dst, const src_t& src)
       dst.max_to_node[i] = src.max_to_node[i];
     }
   } else {
-    dst.distance_dim.distance_forward     = src.distance_dim.distance_forward;
+    dst.cost_dim.cost_forward             = src.cost_dim.cost_forward;
     dst.time_dim.transit_time_forward     = src.time_dim.transit_time_forward;
     dst.time_dim.latest_arrival_forward   = src.time_dim.latest_arrival_forward;
     dst.time_dim.unavoidable_wait_forward = src.time_dim.unavoidable_wait_forward;
@@ -119,7 +119,7 @@ struct node_stack_t {
 
   // this will be in shared memory for each thread
   struct __align__(32ul) item_t {
-    double distance_forward;
+    double cost_forward;
     double transit_time_forward;
     double latest_arrival_forward;
     double unavoidable_wait_forward;
@@ -210,7 +210,7 @@ struct node_stack_t {
         (solution_ptr->get_max_active_nodes_for_all_routes() + 1) * sizeof(f_t);
       sh_size += shared_for_time_buffers;
     }
-    if (solution_ptr->problem_ptr->dimensions_info.distance_dim.has_constraints()) {
+    if (solution_ptr->problem_ptr->dimensions_info.cost_dim.has_constraints()) {
       const size_t shared_for_dist_buffers =
         (2 + (max_neighbors<i_t, REQUEST>(k_max) + 1)) *
         (solution_ptr->get_max_active_nodes_for_all_routes() + 1) * sizeof(f_t);
@@ -233,7 +233,7 @@ struct node_stack_t {
       wrap_ptr_as_span<i_t>(sh_ptr, max_neighbors<i_t, REQUEST>(k_max) * blockDim.x);
 
     loop_over_constrained_dimensions(dim_info(), [&](auto I) {
-      if constexpr ((I == size_t(dim_t::DIST)) || (I == size_t(dim_t::TIME))) {
+      if constexpr ((I == size_t(dim_t::COST)) || (I == size_t(dim_t::TIME))) {
         thrust::tie(dim_delivery_to_all[I], sh_ptr) =
           wrap_ptr_as_span<f_t>(sh_ptr, 2 * (route_length + 1));
         thrust::tie(dim_buffer_route[I], sh_ptr) =
@@ -254,7 +254,7 @@ struct node_stack_t {
       (best_sequence.size() + p_scores.size() + gathered.size() + max_to_node.size()) * sizeof(i_t);
 
     loop_over_constrained_dimensions(dim_info(), [&](auto I) {
-      if constexpr ((I == size_t(dim_t::DIST)) || (I == size_t(dim_t::TIME))) {
+      if constexpr ((I == size_t(dim_t::COST)) || (I == size_t(dim_t::TIME))) {
         total_bytes += (dim_delivery_to_all[I].size() + dim_buffer_route[I].size()) * sizeof(f_t);
       }
     });
@@ -292,7 +292,7 @@ struct node_stack_t {
   template <size_t d>
   DI void compute_dim_buffers()
   {
-    if constexpr ((d == size_t(dim_t::DIST)) || (d == size_t(dim_t::TIME))) {
+    if constexpr ((d == size_t(dim_t::COST)) || (d == size_t(dim_t::TIME))) {
       constexpr dim_t dim = dim_t(d);
       i_t n_nodes_route   = s_route.get_num_nodes();
       auto& node_infos    = s_route.requests().node_info;
@@ -357,7 +357,7 @@ struct node_stack_t {
      * upfront in the lexicographic search kernel so we can safely skip here. Ideal way to handle
      * this smoothly is to pass vehicle_info to calculate_forward and calculate_backward methods
      */
-    if constexpr ((dim == dim_t::DIST) || (dim == dim_t::TIME)) {
+    if constexpr ((dim == dim_t::COST) || (dim == dim_t::TIME)) {
       return dim_delivery_to_all[size_t(dim)][intra_idx];
     } else {
       return f_t{};
@@ -374,7 +374,7 @@ struct node_stack_t {
   DI f_t get_dim_to_delivery(i_t intra_idx) const
   {
     if (!dim_info().has_dimension(dim)) { return f_t{}; }
-    if constexpr ((dim == dim_t::DIST) || (dim == dim_t::TIME)) {
+    if constexpr ((dim == dim_t::COST) || (dim == dim_t::TIME)) {
       return dim_delivery_to_all[size_t(dim)][intra_idx + route_length + 1];
     } else {
       return f_t{};
@@ -391,7 +391,7 @@ struct node_stack_t {
   DI f_t get_dim_between(i_t intra_idx_1, i_t intra_idx_2) const
   {
     if (!dim_info().has_dimension(dim)) { return f_t{}; }
-    if constexpr ((dim == dim_t::DIST) || (dim == dim_t::TIME)) {
+    if constexpr ((dim == dim_t::COST) || (dim == dim_t::TIME)) {
       i_t gap_between = intra_idx_2 - intra_idx_1 - 1;
       return dim_buffer_route[size_t(dim)][intra_idx_1 + gap_between * route_length];
     } else {
@@ -405,21 +405,21 @@ struct node_stack_t {
     return get_dim_between<dim_t(dim)>(intra_idx_1, intra_idx_2);
   }
 
-  DI f_t get_travel_distance_between(i_t intra_idx_1, i_t intra_idx_2) const
+  DI f_t get_distance_between(i_t intra_idx_1, i_t intra_idx_2) const
   {
-    return s_route.get_node(intra_idx_2).distance_dim.travel_distance_forward -
-           s_route.get_node(intra_idx_1).distance_dim.travel_distance_forward;
+    return s_route.get_node(intra_idx_2).cost_dim.cost_forward -
+           s_route.get_node(intra_idx_1).cost_dim.cost_forward;
   }
 
-  DI f_t get_travel_distance_to_delivery(i_t intra_idx) const
+  DI f_t get_distance_to_delivery(i_t intra_idx) const
   {
-    return detail::get_travel_distance(
+    return detail::get_distance(
       s_route.get_node(intra_idx).node_info(), delivery_node.node_info(), s_route.vehicle_info());
   }
 
-  DI f_t get_travel_distance_from_delivery(i_t intra_idx) const
+  DI f_t get_distance_from_delivery(i_t intra_idx) const
   {
-    return detail::get_travel_distance(
+    return detail::get_distance(
       delivery_node.node_info(), s_route.get_node(intra_idx).node_info(), s_route.vehicle_info());
   }
 
@@ -433,9 +433,9 @@ struct node_stack_t {
     copy_forward_data(d_node, top());
     loop_over_dimensions(dim_info(), [&] __device__(auto I) {
       if (get_dimension_of<I>(dim_info()).has_constraints()) {
-        if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
+        if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
           auto cost_between   = get_dim_between<I>(from_idx, to_idx);
-          auto travel_between = get_travel_distance_between(from_idx, to_idx);
+          auto travel_between = get_distance_between(from_idx, to_idx);
           get_dimension_of<I>(d_node).calculate_forward(
             get_dimension_of<I>(node), cost_between, travel_between);
         } else {
@@ -482,9 +482,9 @@ struct node_stack_t {
   {
     loop_over_dimensions(dim_info(), [&] __device__(auto I) {
       if (get_dimension_of<I>(dim_info()).has_constraints()) {
-        if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
+        if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
           auto cost_to_delivery   = get_dim_to_delivery<I>(idx);
-          auto travel_to_delivery = get_travel_distance_to_delivery(idx);
+          auto travel_to_delivery = get_distance_to_delivery(idx);
           get_dimension_of<I>(node).calculate_forward(
             get_dimension_of<I>(delivery_node), cost_to_delivery, travel_to_delivery);
         } else {
@@ -512,13 +512,11 @@ struct node_stack_t {
   {
     loop_over_dimensions(dim_info(), [&] __device__(auto I) {
       if (get_dimension_of<I>(dim_info()).has_constraints()) {
-        if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
+        if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
           auto cost_from_delivery   = get_dim_from_delivery<I>(idx);
-          auto travel_from_delivery = get_travel_distance_from_delivery(idx);
+          auto travel_from_delivery = get_distance_from_delivery(idx);
           get_dimension_of<I>(delivery_node)
-            .calculate_forward(get_dimension_of<I>(node),
-                               cost_from_delivery,
-                               travel_from_delivery);
+            .calculate_forward(get_dimension_of<I>(node), cost_from_delivery, travel_from_delivery);
         } else {
           auto dim_from_delivery = get_dim_from_delivery<I>(idx);
           get_dimension_of<I>(delivery_node)
@@ -735,9 +733,9 @@ struct node_stack_t {
                      "dim buffer mismatch");
         loop_over_dimensions(beginning_of_hole.dimensions_info, [&] __device__(auto I) {
           if (get_dimension_of<I>(beginning_of_hole.dimensions_info).has_constraints()) {
-            if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
+            if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
               auto cost_between   = get_dim_between<I>(i - size_of_hole, i + 1);
-              auto travel_between = get_travel_distance_between(i - size_of_hole, i + 1);
+              auto travel_between = get_distance_between(i - size_of_hole, i + 1);
               get_dimension_of<I>(beginning_of_hole)
                 .calculate_forward(get_dimension_of<I>(next_node), cost_between, travel_between);
             } else {
@@ -772,11 +770,11 @@ struct node_stack_t {
         cuopt_assert(check_dim_between(i, i + 1, iter_node, next_node), "dim buffer mismatch");
         loop_over_dimensions(iter_node.dimensions_info, [&] __device__(auto I) {
           if (get_dimension_of<I>(iter_node.dimensions_info).has_constraints()) {
-            if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
+            if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
               auto cost_between   = get_dim_between<I>(i, i + 1);
-              auto travel_between = get_travel_distance_between(i, i + 1);
-              get_dimension_of<I>(iter_node)
-                .calculate_forward(get_dimension_of<I>(next_node), cost_between, travel_between);
+              auto travel_between = get_distance_between(i, i + 1);
+              get_dimension_of<I>(iter_node).calculate_forward(
+                get_dimension_of<I>(next_node), cost_between, travel_between);
             } else {
               auto dim_between = get_dim_between<I>(i, i + 1);
               get_dimension_of<I>(iter_node).calculate_forward(get_dimension_of<I>(next_node),
@@ -852,13 +850,12 @@ struct node_stack_t {
             cuopt_assert(check_dim_from_delivery(i + 1, next_node), "dim buffer mismatch");
             loop_over_dimensions(beginning_of_hole.dimensions_info, [&] __device__(auto I) {
               if (get_dimension_of<I>(beginning_of_hole.dimensions_info).has_constraints()) {
-                if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
+                if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
                   auto cost_between   = get_dim_from_delivery<I>(i + 1);
-                  auto travel_between = get_travel_distance_from_delivery(i + 1);
+                  auto travel_between = get_distance_from_delivery(i + 1);
                   get_dimension_of<I>(beginning_of_hole)
-                    .calculate_forward(get_dimension_of<I>(next_node),
-                                       cost_between,
-                                       travel_between);
+                    .calculate_forward(
+                      get_dimension_of<I>(next_node), cost_between, travel_between);
                 } else {
                   auto dim_between = get_dim_from_delivery<I>(i + 1);
                   get_dimension_of<I>(beginning_of_hole)
@@ -871,13 +868,12 @@ struct node_stack_t {
                          "dim buffer mismatch");
             loop_over_dimensions(beginning_of_hole.dimensions_info, [&] __device__(auto I) {
               if (get_dimension_of<I>(beginning_of_hole.dimensions_info).has_constraints()) {
-                if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
+                if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
                   auto cost_between   = get_dim_between<I>(i - size_of_hole, i + 1);
-                  auto travel_between = get_travel_distance_between(i - size_of_hole, i + 1);
+                  auto travel_between = get_distance_between(i - size_of_hole, i + 1);
                   get_dimension_of<I>(beginning_of_hole)
-                    .calculate_forward(get_dimension_of<I>(next_node),
-                                       cost_between,
-                                       travel_between);
+                    .calculate_forward(
+                      get_dimension_of<I>(next_node), cost_between, travel_between);
                 } else {
                   auto dim_between = get_dim_between<I>(i - size_of_hole, i + 1);
                   get_dimension_of<I>(beginning_of_hole)
@@ -912,11 +908,11 @@ struct node_stack_t {
         cuopt_assert(check_dim_between(i, i + 1, iter_node, next_node), "dim buffer mismatch");
         loop_over_dimensions(iter_node.dimensions_info, [&] __device__(auto I) {
           if (get_dimension_of<I>(iter_node.dimensions_info).has_constraints()) {
-            if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
+            if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
               auto cost_between   = get_dim_between<I>(i, i + 1);
-              auto travel_between = get_travel_distance_between(i, i + 1);
-              get_dimension_of<I>(iter_node)
-                .calculate_forward(get_dimension_of<I>(next_node), cost_between, travel_between);
+              auto travel_between = get_distance_between(i, i + 1);
+              get_dimension_of<I>(iter_node).calculate_forward(
+                get_dimension_of<I>(next_node), cost_between, travel_between);
             } else {
               auto dim_between = get_dim_between<I>(i, i + 1);
               get_dimension_of<I>(iter_node).calculate_forward(get_dimension_of<I>(next_node),
@@ -944,10 +940,10 @@ struct node_stack_t {
       f_t orig_time = get_arc_of_dimension<i_t, f_t, I>(
         delivery_node.node_info(), node_info, s_route.vehicle_info());
       return orig_time == dim_from_buffer;
-    } else if constexpr (I == (size_t)dim_t::DIST) {
-      f_t orig_dist = get_arc_of_dimension<i_t, f_t, I>(
+    } else if constexpr (I == (size_t)dim_t::COST) {
+      f_t orig_cost = get_arc_of_dimension<i_t, f_t, I>(
         delivery_node.node_info(), node_info, s_route.vehicle_info());
-      return orig_dist == dim_from_buffer;
+      return orig_cost == dim_from_buffer;
     } else {
       return true;
     }
@@ -961,10 +957,10 @@ struct node_stack_t {
       f_t orig_time = get_arc_of_dimension<i_t, f_t, I>(
         node_info, delivery_node.node_info(), s_route.vehicle_info());
       return orig_time == dim_from_buffer;
-    } else if constexpr (I == (size_t)dim_t::DIST) {
-      f_t orig_dist = get_arc_of_dimension<i_t, f_t, I>(
+    } else if constexpr (I == (size_t)dim_t::COST) {
+      f_t orig_cost = get_arc_of_dimension<i_t, f_t, I>(
         node_info, delivery_node.node_info(), s_route.vehicle_info());
-      return orig_dist == dim_from_buffer;
+      return orig_cost == dim_from_buffer;
     } else {
       return true;
     }
@@ -980,10 +976,10 @@ struct node_stack_t {
       f_t orig_time =
         get_arc_of_dimension<i_t, f_t, I>(node_info_1, node_info_2, s_route.vehicle_info());
       return orig_time == dim_from_buffer;
-    } else if constexpr (I == (size_t)dim_t::DIST) {
-      f_t orig_dist =
+    } else if constexpr (I == (size_t)dim_t::COST) {
+      f_t orig_cost =
         get_arc_of_dimension<i_t, f_t, I>(node_info_1, node_info_2, s_route.vehicle_info());
-      return orig_dist == dim_from_buffer;
+      return orig_cost == dim_from_buffer;
     } else {
       return true;
     }

@@ -9,7 +9,7 @@
 
 #include "break_node.cuh"
 #include "capacity_node.cuh"
-#include "distance_node.cuh"
+#include "cost_node.cuh"
 #include "mismatch_node.cuh"
 #include "pdp_node.cuh"
 #include "prize_node.cuh"
@@ -66,10 +66,9 @@ class node_t {
                                        const VehicleInfo<f_t, is_device>& vehicle_info) const
   {
     loop_over_dimensions(dimensions_info, [&](auto I) {
-      if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
-        auto arc_cost_distance = get_distance(request.info, next_node.request.info, vehicle_info);
-        auto arc_travel_distance =
-          get_travel_distance(request.info, next_node.request.info, vehicle_info);
+      if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
+        auto arc_cost_distance   = get_distance(request.info, next_node.request.info, vehicle_info);
+        auto arc_travel_distance = get_distance(request.info, next_node.request.info, vehicle_info);
         get_dimension<I>().calculate_forward(
           next_node.get_dimension<I>(), arc_cost_distance, arc_travel_distance);
       } else {
@@ -114,10 +113,9 @@ class node_t {
   DI void calculate_backward_all(node_t& prev_node, const VehicleInfo<f_t>& vehicle_info) const
   {
     loop_over_dimensions(dimensions_info, [&](auto I) {
-      if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
-        auto arc_cost_distance = get_distance(prev_node.request.info, request.info, vehicle_info);
-        auto arc_travel_distance =
-          get_travel_distance(prev_node.request.info, request.info, vehicle_info);
+      if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
+        auto arc_cost_distance   = get_distance(prev_node.request.info, request.info, vehicle_info);
+        auto arc_travel_distance = get_distance(prev_node.request.info, request.info, vehicle_info);
         get_dimension<I>().calculate_backward(
           prev_node.get_dimension<I>(), arc_cost_distance, arc_travel_distance);
       } else {
@@ -178,10 +176,10 @@ class node_t {
       if constexpr (I != (size_t)dim_t::TIME) {
         auto& dim_node    = prev.get_dimension<I>();
         double dim_excess = 0.;
-        if constexpr (decltype(I)::value == (size_t)dim_t::DIST) {
+        if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
           auto arc_cost_distance = get_distance(prev.request.info, next.request.info, vehicle_info);
           auto arc_travel_distance =
-            get_travel_distance(prev.request.info, next.request.info, vehicle_info);
+            get_distance(prev.request.info, next.request.info, vehicle_info);
           dim_excess = std::decay_t<decltype(dim_node)>::combine(prev.get_dimension<I>(),
                                                                  next.get_dimension<I>(),
                                                                  vehicle_info,
@@ -307,7 +305,7 @@ class node_t {
   request_info_t<i_t, REQUEST> request;
   time_node_t<i_t, f_t> time_dim;
   capacity_node_t<i_t, f_t> capacity_dim;
-  distance_node_t<i_t, f_t> distance_dim;
+  cost_node_t<i_t, f_t> cost_dim;
   prize_node_t<i_t, f_t> prize_dim;
   tasks_node_t<i_t, f_t> tasks_dim;
   service_time_node_t<i_t, f_t> service_time_dim;

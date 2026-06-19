@@ -48,7 +48,7 @@ static constexpr NodeInfo<i_t> load(i_t pos, NodeInfo<i_t> const* path_node)
 
 // All values pre-loaded overload
 template <typename i_t, typename f_t, bool is_device = true>
-static constexpr double get_distance(const NodeInfo<i_t>& l1,
+static constexpr double get_arc_cost(const NodeInfo<i_t>& l1,
                                      const NodeInfo<i_t>& l2,
                                      const VehicleInfo<f_t, is_device>& vehicle_info)
 {
@@ -59,9 +59,9 @@ static constexpr double get_distance(const NodeInfo<i_t>& l1,
 }
 
 template <typename i_t, typename f_t, bool is_device = true>
-static constexpr double get_travel_distance(const NodeInfo<i_t>& l1,
-                                            const NodeInfo<i_t>& l2,
-                                            const VehicleInfo<f_t, is_device>& vehicle_info)
+static constexpr double get_distance(const NodeInfo<i_t>& l1,
+                                     const NodeInfo<i_t>& l2,
+                                     const VehicleInfo<f_t, is_device>& vehicle_info)
 {
   if (vehicle_info.skip_first_trip && l1.node_type() == node_type_t::DEPOT) { return 0.f; }
   if (vehicle_info.drop_return_trip && l2.node_type() == node_type_t::DEPOT) { return 0.f; }
@@ -107,7 +107,7 @@ static constexpr double get_arc_dimension(dim_t dim,
                                           const NodeInfo<i_t>& l2,
                                           const VehicleInfo<f_t>& vehicle_info)
 {
-  if (dim == dim_t::DIST) { return get_distance(l1, l2, vehicle_info); }
+  if (dim == dim_t::COST) { return get_arc_cost(l1, l2, vehicle_info); }
   return get_transit_time(l1, l2, vehicle_info);
 }
 
@@ -116,8 +116,8 @@ static constexpr double get_arc_of_dimension(const NodeInfo<i_t>& l1,
                                              const NodeInfo<i_t>& l2,
                                              const VehicleInfo<f_t, is_device>& vehicle_info)
 {
-  if constexpr (dim == dim_t::DIST) {
-    return get_distance(l1, l2, vehicle_info);
+  if constexpr (dim == dim_t::COST) {
+    return get_arc_cost(l1, l2, vehicle_info);
   } else if constexpr (dim == dim_t::TIME) {
     return get_transit_time(l1, l2, vehicle_info, true);
   } else if constexpr (dim == dim_t::SERVICE_TIME) {

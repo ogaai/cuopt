@@ -11,8 +11,8 @@
 
 #include <cuopt/routing/data_model_view.hpp>
 #include <cuopt/routing/solver_settings.hpp>
-#include <routing/fleet_info.hpp>
 #include <routing/arc_value.hpp>
+#include <routing/fleet_info.hpp>
 #include <routing/fleet_order_info.hpp>
 #include <routing/order_info.hpp>
 #include <routing/problem/special_nodes.cuh>
@@ -172,8 +172,8 @@ class problem_t {
                                                   const NodeInfo<i_t>& to_node,
                                                   const VehicleInfo<f_t, is_device>& vehicle_info)
   {
-    const auto arc_cost_distance = get_distance(from_node, to_node, vehicle_info);
-    const auto arc_travel_distance = get_travel_distance(from_node, to_node, vehicle_info);
+    const auto arc_cost_distance   = get_distance(from_node, to_node, vehicle_info);
+    const auto arc_travel_distance = get_distance(from_node, to_node, vehicle_info);
     return vehicle_info.compute_distance_cost(arc_travel_distance, arc_cost_distance);
   }
 

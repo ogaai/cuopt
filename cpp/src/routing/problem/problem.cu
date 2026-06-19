@@ -64,9 +64,9 @@ problem_t<i_t, f_t>::problem_t(const data_model_view_t<i_t, f_t>& data_model_vie
       cost_matrices_h.emplace(vtype, cost_matrix_h);
     }
     if (!travel_distance_matrices_h.count(vtype)) {
-      auto travel_distance_matrix = fleet_info.matrices_.get_distance_matrix(vtype);
-      auto travel_distance_matrix_h =
-        cuopt::host_copy(travel_distance_matrix, n_locations * n_locations, handle_ptr->get_stream());
+      auto travel_distance_matrix   = fleet_info.matrices_.get_distance_matrix(vtype);
+      auto travel_distance_matrix_h = cuopt::host_copy(
+        travel_distance_matrix, n_locations * n_locations, handle_ptr->get_stream());
       travel_distance_matrices_h.emplace(vtype, travel_distance_matrix_h);
     }
   }
@@ -246,10 +246,10 @@ void problem_t<i_t, f_t>::populate_dimensions_info()
   // DIST dimension info
   double cost_obj_weight =
     specified_weights.count(objective_t::COST) ? specified_weights.at(objective_t::COST) : 1.0;
-  dimensions_info.enable_dimension(dim_t::DIST);
+  dimensions_info.enable_dimension(dim_t::COST);
   dimensions_info.enable_objective(objective_t::COST, cost_obj_weight);
 
-  auto& cost_dim_info = dimensions_info.distance_dim;
+  auto& cost_dim_info = dimensions_info.cost_dim;
   if (auto vehicle_max_distances = data_view_ptr->get_vehicle_max_distances();
       !vehicle_max_distances.empty()) {
     cost_dim_info.has_max_constraint = true;
@@ -362,7 +362,7 @@ void problem_t<i_t, f_t>::populate_dimensions_info()
   if (data_view_ptr->get_fleet_size() == 1) {
     is_tsp = true;
     loop_over_dimensions(dimensions_info, [&](auto I) {
-      if constexpr (I != (size_t)dim_t::DIST) { is_tsp = false; }
+      if constexpr (I != (size_t)dim_t::COST) { is_tsp = false; }
     });
   }
   dimensions_info.is_tsp = is_tsp;
@@ -371,7 +371,7 @@ void problem_t<i_t, f_t>::populate_dimensions_info()
     is_cvrp_ = !is_pdp() && (data_view_ptr->get_cost_matrices().size() == 1);
     if (is_cvrp_) {
       loop_over_dimensions(dimensions_info, [&](auto I) {
-        if (I != (int)dim_t::DIST && I != (int)dim_t::CAP) { is_cvrp_ = false; }
+        if (I != (int)dim_t::COST && I != (int)dim_t::CAP) { is_cvrp_ = false; }
       });
     }
     is_cvrp_ = is_cvrp_ && n_capacity_dims == 1;
@@ -486,8 +486,8 @@ double problem_t<i_t, f_t>::distance_between(const NodeInfo<>& node_1,
     return 0.;
   }
 
-  return travel_distance_matrices_h.at(vehicle_type)[node_1.location() * n_locations +
-                                                     node_2.location()];
+  return travel_distance_matrices_h.at(
+    vehicle_type)[node_1.location() * n_locations + node_2.location()];
 }
 
 template <typename i_t, typename f_t>

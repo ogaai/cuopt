@@ -15,6 +15,8 @@
 #define DEPO 0
 
 // Array indexes for evaluation of distinct features
+// cost
+constexpr int COST = 0;
 // distance
 constexpr int DIST = 0;
 // time

@@ -29,17 +29,17 @@ __global__ void compute_reverse_distances(typename solution_t<i_t, f_t, REQUEST>
     auto route_id = route.get_id();
     auto n_nodes  = route.get_num_nodes();
 
-    route.dimensions.distance_dim.reverse_distance[n_nodes] = 0.;
-    route.dimensions.distance_dim.reverse_travel_distance[n_nodes] = 0.;
+    route.dimensions.cost_dim.reverse_cost[n_nodes]     = 0.;
+    route.dimensions.cost_dim.reverse_distance[n_nodes] = 0.;
     for (int i = n_nodes - 1; i >= 0; i--) {
-      double cost_distance = get_distance(
+      double cost_distance = get_arc_cost(
         route.get_node(i + 1).node_info(), route.get_node(i).node_info(), route.vehicle_info());
-      double travel_distance = get_travel_distance(
+      double distance = get_distance(
         route.get_node(i + 1).node_info(), route.get_node(i).node_info(), route.vehicle_info());
-      route.dimensions.distance_dim.reverse_distance[i] =
-        cost_distance + route.dimensions.distance_dim.reverse_distance[i + 1];
-      route.dimensions.distance_dim.reverse_travel_distance[i] =
-        travel_distance + route.dimensions.distance_dim.reverse_travel_distance[i + 1];
+      route.dimensions.cost_dim.reverse_cost[i] =
+        cost_distance + route.dimensions.cost_dim.reverse_cost[i + 1];
+      route.dimensions.cost_dim.reverse_distance[i] =
+        distance + route.dimensions.cost_dim.reverse_distance[i + 1];
     }
   }
 }
