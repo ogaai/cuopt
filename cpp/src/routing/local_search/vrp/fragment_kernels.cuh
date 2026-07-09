@@ -25,8 +25,19 @@ DI thrust::pair<double, double> compute_distance_delta_from_totals(
   auto new_obj_cost = route.get_objective_cost();
   auto new_inf_cost = route.get_infeasibility_cost();
 
-  new_obj_cost[objective_t::COST] =
-    route.vehicle_info().compute_distance_cost(new_total_distance, new_total_cost);
+  if (route.vehicle_info().has_distance_tiers()) {
+    const auto old_total_cost     = route.get_node(route.get_num_nodes()).cost_dim.cost_forward;
+    const auto old_total_distance = route.get_node(route.get_num_nodes()).cost_dim.distance_forward;
+    new_obj_cost[objective_t::COST] = route.vehicle_info().compute_distance_cost_from_delta(
+      old_total_distance,
+      old_total_cost,
+      route.get_objective_cost()[objective_t::COST],
+      new_total_distance,
+      new_total_cost,
+      route.get_active_distance_tier());
+  } else {
+    new_obj_cost[objective_t::COST] = new_total_cost;
+  }
   new_inf_cost[dim_t::COST] =
     route.template get_dim<dim_t::COST>().dim_info.has_max_constraint
       ? max(0., new_total_distance - route.vehicle_info().max_distance) +

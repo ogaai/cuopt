@@ -215,6 +215,37 @@ TEST(distance_tiers_separate_distance, compute_distance_cost_accumulates_fixed_c
   ASSERT_NEAR(vehicle_info.compute_distance_cost(12.f, 3.f), 18.f, 1e-5);
 }
 
+TEST(distance_tiers_separate_distance, compute_distance_cost_from_delta_matches_full_cost)
+{
+  using vehicle_info_t  = cuopt::routing::detail::VehicleInfo<float, false>;
+  using distance_tier_t = cuopt::routing::detail::distance_tier_t<float>;
+
+  std::vector<distance_tier_t> tiers = {{5.f, 4.f, 2.f}, {10.f, 7.f, 3.f}, {1.0e9f, 0.f, 5.f}};
+  vehicle_info_t vehicle_info{};
+  vehicle_info.distance_tiers =
+    raft::span<distance_tier_t const, false>(tiers.data(), tiers.size());
+
+  const double old_distance      = 6.f;
+  const double old_fallback_cost = 11.f;
+  const double old_cost          = vehicle_info.compute_distance_cost(old_distance, old_fallback_cost);
+  const int old_tier             = vehicle_info.find_distance_tier(old_distance);
+
+  ASSERT_EQ(old_tier, 1);
+
+  ASSERT_NEAR(vehicle_info.compute_distance_cost_from_delta(
+                old_distance, old_fallback_cost, old_cost, 8.f, 15.f, old_tier),
+              vehicle_info.compute_distance_cost(8.f, 15.f),
+              1e-5);
+  ASSERT_NEAR(vehicle_info.compute_distance_cost_from_delta(
+                old_distance, old_fallback_cost, old_cost, 12.f, 18.f, old_tier),
+              vehicle_info.compute_distance_cost(12.f, 18.f),
+              1e-5);
+  ASSERT_NEAR(vehicle_info.compute_distance_cost_from_delta(
+                old_distance, old_fallback_cost, old_cost, 5.f, 9.f, old_tier),
+              vehicle_info.compute_distance_cost(5.f, 9.f),
+              1e-5);
+}
+
 TEST(distance_tiers_separate_distance, solver_applies_heterogeneous_tier_offsets_per_vehicle)
 {
   constexpr int nlocations = 3;

@@ -172,7 +172,7 @@ class problem_t {
                                                   const NodeInfo<i_t>& to_node,
                                                   const VehicleInfo<f_t, is_device>& vehicle_info)
   {
-    const auto arc_cost_distance   = get_distance(from_node, to_node, vehicle_info);
+    const auto arc_cost_distance   = get_arc_cost(from_node, to_node, vehicle_info);
     const auto arc_travel_distance = get_distance(from_node, to_node, vehicle_info);
     return vehicle_info.compute_distance_cost(arc_travel_distance, arc_cost_distance);
   }

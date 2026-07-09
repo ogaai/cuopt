@@ -78,6 +78,52 @@ struct VehicleInfo {
 
     return fallback_cost_distance + tier_cost;
   }
+
+  HDI int find_distance_tier(double travel_distance) const
+  {
+    if (!has_distance_tiers()) { return -1; }
+
+    double prev_threshold = 0.0;
+    for (size_t i = 0; i < distance_tiers.size(); ++i) {
+      const double upper = distance_tiers[i].threshold;
+      if (travel_distance > prev_threshold && travel_distance <= upper) {
+        return static_cast<int>(i);
+      }
+      if (travel_distance <= upper) { break; }
+      prev_threshold = upper;
+    }
+
+    return -1;
+  }
+
+  HDI double compute_distance_cost_from_delta(double old_travel_distance,
+                                              double old_fallback_cost_distance,
+                                              double old_distance_cost,
+                                              double new_travel_distance,
+                                              double new_fallback_cost_distance,
+                                              int old_distance_tier) const
+  {
+    if (!has_distance_tiers()) { return new_fallback_cost_distance; }
+
+    if (old_distance_tier >= 0 && old_distance_tier < static_cast<int>(distance_tiers.size())) {
+      const auto& tier         = distance_tiers[old_distance_tier];
+      const double upper       = tier.threshold;
+      const double prev_threshold =
+        old_distance_tier == 0 ? 0.0 : distance_tiers[old_distance_tier - 1].threshold;
+      const bool old_in_tier =
+        old_travel_distance > prev_threshold && old_travel_distance <= upper;
+      const bool new_in_tier =
+        new_travel_distance > prev_threshold && new_travel_distance <= upper;
+
+      if (old_in_tier && new_in_tier) {
+        return old_distance_cost + (new_fallback_cost_distance - old_fallback_cost_distance) +
+               (new_travel_distance - old_travel_distance) * tier.cost_per_unit;
+      }
+    }
+
+    return compute_distance_cost(new_travel_distance, new_fallback_cost_distance);
+  }
+
   bool operator==(VehicleInfo<f_t, is_device> const& rhs) const
   {
     if (distance_tiers.size() != rhs.distance_tiers.size()) { return false; }

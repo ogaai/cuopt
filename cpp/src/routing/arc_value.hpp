@@ -10,6 +10,7 @@
 #include <cuopt/error.hpp>
 #include <routing/dimensions.cuh>
 #include <routing/structures.hpp>
+#include <routing/vehicle_info.hpp>
 
 #include <rmm/exec_policy.hpp>
 

@@ -67,7 +67,7 @@ class node_t {
   {
     loop_over_dimensions(dimensions_info, [&](auto I) {
       if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
-        auto arc_cost_distance   = get_distance(request.info, next_node.request.info, vehicle_info);
+        auto arc_cost_distance   = get_arc_cost(request.info, next_node.request.info, vehicle_info);
         auto arc_travel_distance = get_distance(request.info, next_node.request.info, vehicle_info);
         get_dimension<I>().calculate_forward(
           next_node.get_dimension<I>(), arc_cost_distance, arc_travel_distance);
@@ -114,7 +114,7 @@ class node_t {
   {
     loop_over_dimensions(dimensions_info, [&](auto I) {
       if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
-        auto arc_cost_distance   = get_distance(prev_node.request.info, request.info, vehicle_info);
+        auto arc_cost_distance   = get_arc_cost(prev_node.request.info, request.info, vehicle_info);
         auto arc_travel_distance = get_distance(prev_node.request.info, request.info, vehicle_info);
         get_dimension<I>().calculate_backward(
           prev_node.get_dimension<I>(), arc_cost_distance, arc_travel_distance);
@@ -177,7 +177,7 @@ class node_t {
         auto& dim_node    = prev.get_dimension<I>();
         double dim_excess = 0.;
         if constexpr (decltype(I)::value == (size_t)dim_t::COST) {
-          auto arc_cost_distance = get_distance(prev.request.info, next.request.info, vehicle_info);
+          auto arc_cost_distance = get_arc_cost(prev.request.info, next.request.info, vehicle_info);
           auto arc_travel_distance =
             get_distance(prev.request.info, next.request.info, vehicle_info);
           dim_excess = std::decay_t<decltype(dim_node)>::combine(prev.get_dimension<I>(),
