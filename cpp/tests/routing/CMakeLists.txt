@@ -31,6 +31,8 @@ ConfigureTest(SC25_TEST_DISTANCE_TIER  ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests/sc
     LABELS routing)
 ConfigureTest(TEST_DUMMY_DISTANCE_TIER  ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests/test_distance_tier_dummy.cu
     LABELS routing)
+ConfigureTest(FSMVRPTWSC_TEST ${CMAKE_CURRENT_SOURCE_DIR}/fsmvrptwsc/fsmvrptwsc_test.cu
+    LABELS routing)
 
 # Disabled: both tests are slow and known to be broken.
 set_tests_properties(RETAIL_L1TEST ROUTING_L1TEST PROPERTIES DISABLED TRUE)

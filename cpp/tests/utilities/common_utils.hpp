@@ -11,6 +11,7 @@
 #include <utilities/macros.cuh>
 
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
