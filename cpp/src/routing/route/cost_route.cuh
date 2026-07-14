@@ -128,7 +128,7 @@ class cost_route_t {
      *
      * The logic applies tiered pricing:
      * - Find the appropriate tier based on total distance
-     * - If fixed_cost > 0, use it; otherwise use cost_per_unit * distance
+     * - Add fixed_cost and cost_per_unit * distance within each active tier
      *
      * @param distance Total route distance
      * @param vehicle_info Vehicle information containing distance tiers

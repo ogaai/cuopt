@@ -57,6 +57,20 @@ struct VehicleInfo {
     return has_distance_tiers() || has_max_distance_constraint();
   }
 
+  HDI static constexpr double fixed_tier_tie_breaker_cost_per_unit()
+  {
+    return 1.0e-4;
+  }
+
+  HDI static double effective_tier_cost_per_unit(distance_tier_t<f_t> const& tier)
+  {
+    // Flat fixed-price tiers otherwise make longer and shorter routes indistinguishable. Keep this
+    // small so it breaks route-scale ties without dominating the configured step costs.
+    return tier.fixed_cost > 0.0 && tier.cost_per_unit == 0.0
+             ? fixed_tier_tie_breaker_cost_per_unit()
+             : tier.cost_per_unit;
+  }
+
   HDI double compute_distance_cost(double travel_distance, double fallback_cost_distance) const
   {
     if (!has_distance_tiers()) { return fallback_cost_distance; }
@@ -70,7 +84,7 @@ struct VehicleInfo {
       const double in_band = min(travel_distance, upper) - prev_threshold;
       if (in_band > 0.0) {
         if (tier.fixed_cost > 0.0) { tier_cost += tier.fixed_cost; }
-        tier_cost += in_band * tier.cost_per_unit;
+        tier_cost += in_band * effective_tier_cost_per_unit(tier);
       }
       prev_threshold = upper;
       if (travel_distance <= upper) { break; }
@@ -117,7 +131,7 @@ struct VehicleInfo {
 
       if (old_in_tier && new_in_tier) {
         return old_distance_cost + (new_fallback_cost_distance - old_fallback_cost_distance) +
-               (new_travel_distance - old_travel_distance) * tier.cost_per_unit;
+               (new_travel_distance - old_travel_distance) * effective_tier_cost_per_unit(tier);
       }
     }
 

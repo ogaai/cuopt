@@ -32,6 +32,10 @@ def warn_on_objectives(solver_config):
     return warnings, solver_config
 
 
+def _distance_tier_threshold_for_solver(threshold):
+    return np.finfo(np.float32).max if threshold is None else threshold
+
+
 # Create routes as waypoint sequence from sequence of task locations
 def create_waypoint_sequence_routes(
     optimization_data, solution_routes, waypoint_graph
@@ -141,6 +145,9 @@ def create_data_model(
 
     for key, value in cost_matrix.items():
         data_model.add_cost_matrix(value, key)
+    if len(optimization_data.distance_matrix) > 0:
+        for key, value in optimization_data.distance_matrix.items():
+            data_model.add_distance_matrix(value, key)
     if travel_time_matrix is not None:
         for key, value in travel_time_matrix.items():
             data_model.add_transit_time_matrix(value, key)
@@ -266,7 +273,9 @@ def create_data_model(
         for vehicle_id, tiers in enumerate(tiers_by_vehicle):
             for tier in tiers:
                 vehicle_ids_list.append(vehicle_id)
-                thresholds_list.append(tier["threshold"])
+                thresholds_list.append(
+                    _distance_tier_threshold_for_solver(tier["threshold"])
+                )
                 fixed_costs_list.append(tier.get("fixed_cost", 0.0))
                 costs_per_unit_list.append(tier.get("cost_per_unit", 0.0))
 
