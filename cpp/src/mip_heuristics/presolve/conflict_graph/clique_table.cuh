@@ -1,23 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights
- * reserved. SPDX-License-Identifier: Apache-2.0
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-#include <cuopt/linear_programming/mip/solver_settings.hpp>
+#include <cuopt/mathematical_optimization/mip/solver_settings.hpp>
 #include <dual_simplex/user_problem.hpp>
 
 #include <memory>
@@ -31,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-namespace cuopt::linear_programming::detail {
+namespace cuopt::mathematical_optimization::mip {
 
 struct clique_config_t {
   int min_clique_size               = 512;
@@ -204,15 +192,21 @@ struct clique_table_t {
   typename mip_solver_settings_t<i_t, f_t>::tolerances_t tolerances;
 };
 
+// Builds the conflict-graph clique table for `problem`. The base cliques are
+// published to `clique_table_out` before the (optional, signal-gated) extension
+// phase begins, so cut generation can pick up the table while extension keeps
+// running concurrently. Consumers MUST set `*signal_extend` and join the
+// producing task before reading the table (see prepare_fractional_sub_conflict_graph), since
+// the extension phase keeps mutating the same object after it is published.
 template <typename i_t, typename f_t>
-void find_initial_cliques(dual_simplex::user_problem_t<i_t, f_t>& problem,
+void find_initial_cliques(simplex::user_problem_t<i_t, f_t>& problem,
                           typename mip_solver_settings_t<i_t, f_t>::tolerances_t tolerances,
-                          std::shared_ptr<clique_table_t<i_t, f_t>>* clique_table_out,
+                          std::shared_ptr<clique_table_t<i_t, f_t>>& clique_table_out,
                           cuopt::timer_t& timer,
                           omp_atomic_t<bool>* signal_extend = nullptr);
 
 template <typename i_t, typename f_t>
-void build_clique_table(const dual_simplex::user_problem_t<i_t, f_t>& problem,
+void build_clique_table(const simplex::user_problem_t<i_t, f_t>& problem,
                         clique_table_t<i_t, f_t>& clique_table,
                         typename mip_solver_settings_t<i_t, f_t>::tolerances_t tolerances,
                         bool remove_small_cliques,
@@ -222,7 +216,7 @@ void build_clique_table(const dual_simplex::user_problem_t<i_t, f_t>& problem,
 template <typename i_t, typename f_t>
 void fill_var_clique_maps(clique_table_t<i_t, f_t>& clique_table);
 
-}  // namespace cuopt::linear_programming::detail
+}  // namespace cuopt::mathematical_optimization::mip
 
 // Possible application to rounding procedure, keeping it as reference
 
