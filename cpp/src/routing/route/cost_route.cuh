@@ -126,9 +126,8 @@ class cost_route_t {
     /**
      * @brief Calculate real cost based on distance tiers
      *
-     * The logic applies tiered pricing:
-     * - Find the appropriate tier based on total distance
-     * - Add fixed_cost and cost_per_unit * distance within each active tier
+     * The logic applies tiered pricing by accumulating fixed costs and
+     * per-unit costs across every distance band reached by the route.
      *
      * @param distance Total route distance
      * @param vehicle_info Vehicle information containing distance tiers
