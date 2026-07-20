@@ -1,6 +1,6 @@
 /* clang-format off */
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 /* clang-format on */
@@ -105,10 +105,10 @@ struct h_mdarray_t {
   auto view() const
   {
     mdarray_view_t<f_t> view;
-    view.buffer_ptr             = buffer.data();
-    view.cost_matrix_index      = cost_matrix_index;
-    view.distance_matrix_index  = distance_matrix_index;
-    view.time_matrix_index      = time_matrix_index;
+    view.buffer_ptr            = buffer.data();
+    view.cost_matrix_index     = cost_matrix_index;
+    view.distance_matrix_index = distance_matrix_index;
+    view.time_matrix_index     = time_matrix_index;
     for (size_t i = 0; i < NCON_DIMS; ++i) {
       view.extent[i] = extent[i];
     }
@@ -165,10 +165,10 @@ struct d_mdarray_t {
   auto view() const
   {
     mdarray_view_t<f_t> view;
-    view.buffer_ptr             = buffer.data();
-    view.cost_matrix_index      = cost_matrix_index;
-    view.distance_matrix_index  = distance_matrix_index;
-    view.time_matrix_index      = time_matrix_index;
+    view.buffer_ptr            = buffer.data();
+    view.cost_matrix_index     = cost_matrix_index;
+    view.distance_matrix_index = distance_matrix_index;
+    view.time_matrix_index     = time_matrix_index;
     for (size_t i = 0; i < NCON_DIMS; ++i) {
       view.extent[i] = extent[i];
     }
@@ -300,7 +300,7 @@ std::tuple<float const*, float const*, float const*> get_vehicle_matrices(
     cuopt_expects(
       false, error_type_t::ValidationError, "Set vehicle types when using multiple matrices");
   auto distance_matrix = data_model.get_distance_matrix(vehicle_type);
-  auto time_matrix = data_model.get_transit_time_matrix(vehicle_type);
+  auto time_matrix     = data_model.get_transit_time_matrix(vehicle_type);
   if (!time_matrix) time_matrix = cost_matrix;
   return std::make_tuple(cost_matrix, distance_matrix, time_matrix);
 }

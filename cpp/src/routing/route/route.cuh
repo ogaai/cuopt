@@ -669,8 +669,8 @@ class route_t {
         get_dimension_of<I>(dimensions)
           .compute_cost(this->vehicle_info(), *n_nodes, objective_cost[0], infeasibility_cost[0]);
       });
-      active_distance_tier[0] = this->vehicle_info().find_distance_tier(
-        dimensions.cost_dim.distance_forward[*n_nodes]);
+      active_distance_tier[0] =
+        this->vehicle_info().find_distance_tier(dimensions.cost_dim.distance_forward[*n_nodes]);
 
       return thrust::make_tuple(objective_cost[0], infeasibility_cost[0]);
     }
@@ -719,17 +719,17 @@ class route_t {
                                          bool is_tsp = false)
     {
       view_t v;
-      v.infeasibility_cost   = (infeasible_cost_t*)shmem;
-      v.objective_cost       = (objective_cost_t*)&v.infeasibility_cost[1];
-      i_t* sh_ptr            = (i_t*)&v.objective_cost[1];
+      v.infeasibility_cost = (infeasible_cost_t*)shmem;
+      v.objective_cost     = (objective_cost_t*)&v.infeasibility_cost[1];
+      i_t* sh_ptr          = (i_t*)&v.objective_cost[1];
 
       thrust::tie(v.dimensions, sh_ptr) =
         dimensions_route_t<i_t, f_t, REQUEST>::view_t::create_shared_route(
           sh_ptr, orig_route.dimensions_info(), n_nodes_route, is_tsp);
 
-      v.n_nodes    = (i_t*)sh_ptr;
-      v.route_id   = (i_t*)&v.n_nodes[1];
-      v.vehicle_id = (i_t*)&v.route_id[1];
+      v.n_nodes              = (i_t*)sh_ptr;
+      v.route_id             = (i_t*)&v.n_nodes[1];
+      v.vehicle_id           = (i_t*)&v.route_id[1];
       v.active_distance_tier = (i_t*)&v.vehicle_id[1];
 
       // vehicle info will still be in global memory

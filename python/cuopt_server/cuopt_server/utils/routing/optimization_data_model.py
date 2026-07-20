@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
@@ -203,9 +203,7 @@ class OptimizationDataModel:
             .to_pylist()
             if self.fleet_data["vehicle_max_costs"] is not None
             else None,
-            "vehicle_max_distances": self.fleet_data[
-                "vehicle_max_distances"
-            ]
+            "vehicle_max_distances": self.fleet_data["vehicle_max_distances"]
             .to_arrow()
             .to_pylist()
             if self.fleet_data["vehicle_max_distances"] is not None
