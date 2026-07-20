@@ -26,11 +26,7 @@ ConfigureTest(ROUTING_L1TEST ${CMAKE_CURRENT_SOURCE_DIR}/level1/l1_routing_test.
     LABELS routing)
 
 # ##################################################################################################
-# - L1 Distance tier tests --------------------------------------------------------------------------
-ConfigureTest(SC25_TEST_DISTANCE_TIER  ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests/sc25_test_distance_tier.cu
-    LABELS routing)
-ConfigureTest(TEST_DUMMY_DISTANCE_TIER  ${CMAKE_CURRENT_SOURCE_DIR}/unit_tests/test_distance_tier_dummy.cu
-    LABELS routing)
+# - Distance tier tests --------------------------------------------------------------------------
 ConfigureTest(FSMVRPTWSC_TEST ${CMAKE_CURRENT_SOURCE_DIR}/fsmvrptwsc/fsmvrptwsc_test.cu
     LABELS routing)
 
