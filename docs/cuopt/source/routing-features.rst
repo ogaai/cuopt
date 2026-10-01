@@ -129,6 +129,30 @@ Fixed Cost per Vehicle
 -----------------------
 Vehicles can have different fixed costs associated with them. This helps in scenarios where a single vehicle with a higher cost can be avoided if it can be done with two or more vehicles with lesser costs. This would be dependent on the objective function.
 
+Independent Distance Matrices
+----------------------------
+Physical distance can be registered independently from the optimization cost
+and transit time. In Python, use ``DataModel.add_distance_matrix``; server
+requests accept ``distance_matrix_data`` with matrices under the ``data`` key.
+Matrices are keyed by vehicle type and must match the corresponding cost matrix
+dimensions. Entries must be non-negative and representable as float32.
+
+Registering a distance matrix does not change the ``COST`` objective or replace
+the transit-time matrix. The distance input is auxiliary data; it does not
+introduce an objective to minimize physical distance.
+
+For example, a Python data model can register the three metrics separately:
+
+.. code-block:: python
+
+   data_model.add_cost_matrix(cost_matrix)
+   data_model.add_distance_matrix(distance_matrix)
+   data_model.add_transit_time_matrix(time_matrix)
+
+The Python API accepts positive infinity for unreachable distance arcs. Finite
+entries at or above ``1e30`` also represent unreachable arcs. Server distance
+matrices require finite entries; use ``1e30`` for unreachable arcs.
+
 Mapping Orders to Vehicles, and Vehicles to Orders
 ---------------------------------------------------
 By default, cuOpt will assign orders to vehicles based on the optimal routes. However, in some cases, it makes sense to assign specific orders to specific vehicles, or, conversely, specific vehicles to specific orders.
