@@ -86,6 +86,7 @@ message RoutingProblem {
 
   repeated CostMatrix cost_matrices = 10;
   repeated CostMatrix transit_time_matrices = 11;
+  repeated CostMatrix distance_matrices = 12;
 
   // Vehicle arrays (size = fleet_size)
   repeated int32 vehicle_start_locations = 20;

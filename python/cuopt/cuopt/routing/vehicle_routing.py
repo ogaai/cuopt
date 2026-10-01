@@ -150,6 +150,55 @@ class DataModel(_DeferredDataModel):
         super().add_cost_matrix(cost_mat, vehicle_type)
 
     @catch_cuopt_exception
+    def add_distance_matrix(
+        self, distance_mat, vehicle_type=0, *, skip_validation=False
+    ):
+        """Register physical distance independently from cost and transit time.
+
+        Registering this auxiliary matrix does not change the COST objective
+        or introduce an objective to minimize distance.
+
+        Parameters
+        ----------
+        distance_mat : array-like, float32
+            Square matrix with one row and column per location. See the
+            DataModel note on accepted host and device array types. Values
+            must be non-negative and not NaN. Positive infinity and values
+            at or above 1e30 represent unreachable arcs.
+        vehicle_type : int
+            Vehicle-type identifier within [0, 255].
+        skip_validation : bool
+            Skip Python checks for matrix shape and values. The caller must
+            provide a valid square matrix matching the number of locations.
+        """
+        if not isinstance(vehicle_type, (int, np.integer)):
+            raise TypeError("vehicle_type must be an integer")
+        if not 0 <= int(vehicle_type) <= np.iinfo(np.uint8).max:
+            raise ValueError("vehicle_type must be within [0, 255]")
+        if vehicle_type in {
+            args[1] for args in self._recorded("add_distance_matrix")
+        }:
+            raise ValueError(
+                "Vehicle type distance matrix has already been added"
+            )
+        if not skip_validation:
+            validate_matrix(
+                distance_mat, "distance matrix", self.get_num_locations()
+            )
+            if hasattr(distance_mat, "to_numpy"):
+                distance_host = distance_mat.to_numpy()
+            elif hasattr(distance_mat, "get"):
+                distance_host = distance_mat.get()
+            else:
+                distance_host = np.asarray(distance_mat)
+            finite_values = distance_host[np.isfinite(distance_host)]
+            if (finite_values > np.finfo(np.float32).max).any():
+                raise ValueError(
+                    "distance matrix finite values must be representable as float32"
+                )
+        super().add_distance_matrix(distance_mat, vehicle_type)
+
+    @catch_cuopt_exception
     def add_transit_time_matrix(self, mat, vehicle_type=0):
         """
         Add transit time matrix for all locations

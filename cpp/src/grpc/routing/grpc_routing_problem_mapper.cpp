@@ -10,6 +10,8 @@
 #include "grpc_routing_mapper_utils.hpp"
 
 #include <cstdint>
+#include <limits>
+#include <stdexcept>
 #include <utility>
 
 namespace cuopt {
@@ -39,6 +41,16 @@ void map_proto_to_routing_problem(const cuopt::remote::RoutingProblem& pb,
     out.vehicle_type = static_cast<uint8_t>(tm.vehicle_type());
     copy_repeated_to_vector(tm.values(), out.matrix);
     p.transit_time_matrices.push_back(std::move(out));
+  }
+
+  for (auto const& dm : pb.distance_matrices()) {
+    if (dm.vehicle_type() > std::numeric_limits<uint8_t>::max()) {
+      throw std::invalid_argument("distance matrix vehicle_type must be within [0, 255]");
+    }
+    cuopt::routing::cpu_cost_matrix_t out;
+    out.vehicle_type = static_cast<uint8_t>(dm.vehicle_type());
+    copy_repeated_to_vector(dm.values(), out.matrix);
+    p.distance_matrices.push_back(std::move(out));
   }
 
   copy_repeated_to_vector(pb.vehicle_start_locations(), p.vehicle_start_locations);
@@ -154,6 +166,12 @@ void map_routing_problem_to_proto(const cuopt::routing::cpu_routing_problem_t& p
     auto* out = pb->add_transit_time_matrices();
     out->set_vehicle_type(tm.vehicle_type);
     copy_vector_to_repeated(tm.matrix, out->mutable_values());
+  }
+
+  for (auto const& dm : p.distance_matrices) {
+    auto* out = pb->add_distance_matrices();
+    out->set_vehicle_type(dm.vehicle_type);
+    copy_vector_to_repeated(dm.matrix, out->mutable_values());
   }
 
   copy_vector_to_repeated(p.vehicle_start_locations, pb->mutable_vehicle_start_locations());
