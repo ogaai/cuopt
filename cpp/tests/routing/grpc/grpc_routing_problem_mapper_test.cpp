@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 
+#include <stdexcept>
 #include <vector>
 
 namespace {
@@ -73,6 +74,30 @@ TEST(RoutingProblemMapper, VehicleBreaksRoundTrip)
   EXPECT_EQ(back.vehicle_breaks[1][1].earliest, 60);
   EXPECT_EQ(back.vehicle_breaks[1][1].latest, 70);
   EXPECT_EQ(back.vehicle_breaks[1][1].locations, (std::vector<int32_t>{1, 4}));
+}
+
+TEST(RoutingProblemMapper, DistanceMatricesRoundTrip)
+{
+  auto p              = make_base_problem();
+  p.distance_matrices = {{0, {0.f, 5.f, 7.f, 0.f}}, {3, {0.f, 11.f, 13.f, 0.f}}};
+  cuopt::remote::RoutingProblem pb;
+  cuopt::routing::map_routing_problem_to_proto(p, &pb);
+  ASSERT_EQ(pb.distance_matrices_size(), 2);
+  cuopt::routing::cpu_routing_problem_t back;
+  cuopt::routing::map_proto_to_routing_problem(pb, back);
+  ASSERT_EQ(back.distance_matrices.size(), 2u);
+  for (size_t i = 0; i < p.distance_matrices.size(); ++i) {
+    EXPECT_EQ(back.distance_matrices[i].vehicle_type, p.distance_matrices[i].vehicle_type);
+    EXPECT_EQ(back.distance_matrices[i].matrix, p.distance_matrices[i].matrix);
+  }
+}
+
+TEST(RoutingProblemMapper, DistanceMatrixRejectsOverflowingVehicleType)
+{
+  cuopt::remote::RoutingProblem pb;
+  pb.add_distance_matrices()->set_vehicle_type(256);
+  cuopt::routing::cpu_routing_problem_t p;
+  EXPECT_THROW(cuopt::routing::map_proto_to_routing_problem(pb, p), std::invalid_argument);
 }
 
 TEST(RoutingProblemMapper, VehicleDistanceBreaksRoundTrip)
